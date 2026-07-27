@@ -121,7 +121,16 @@ class Handler(SimpleHTTPRequestHandler):
             self.application.store.close()
 
     def log_message(self, format: str, *args) -> None:  # noqa: A003
-        _log("http_access", request_id=self.request_id, method=self.command, path=self.path, message=format % args, duration_ms=round((time.monotonic() - self.request_started) * 1000, 1))
+        # Python invokes this hook while handling malformed request lines, before
+        # `parse_request()` has populated `command` or `path`.
+        _log(
+            "http_access",
+            request_id=self.request_id,
+            method=getattr(self, "command", None) or "INVALID",
+            path=getattr(self, "path", "<invalid-request>"),
+            message=format % args,
+            duration_ms=round((time.monotonic() - self.request_started) * 1000, 1),
+        )
 
     def end_headers(self) -> None:
         self.send_header("X-Request-ID", self.request_id)

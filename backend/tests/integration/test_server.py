@@ -1,4 +1,5 @@
 import json
+import socket
 import sys
 import tempfile
 import threading
@@ -101,6 +102,13 @@ class ServerIntegrationTests(unittest.TestCase):
         status, _, payload = self.request("/api/v1/does-not-exist")
         self.assertEqual(status, 404)
         self.assertEqual(payload["code"], "route_not_found")
+
+    def test_malformed_request_is_rejected_without_crashing_the_handler(self):
+        with socket.create_connection(("127.0.0.1", self.server.server_port), timeout=5) as connection:
+            connection.sendall(b"GET / HTTP/2.0\r\nHost: localhost\r\n\r\n")
+            response = connection.recv(1024)
+        self.assertIn(b"505", response)
+        self.assertEqual(self.request("/api/health")[0], 200)
 
     def test_admin_validation_does_not_create_invalid_data(self):
         status, _, payload = self.request(
