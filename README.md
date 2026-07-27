@@ -4,7 +4,7 @@ ARGUS is a **Technology Hype & Maturity Tracker**. It estimates the gap between 
 
 The showcase tracks **AI agent harnesses**, **Model Context Protocol (MCP)**, and **AI browser agents**. It combines current news/community coverage with public repository activity, produces weekly phase estimates, and explains both supporting and contradictory evidence on a web-based curve.
 
-The application remains dependency-free at runtime: a Python API, explainable phase inference, 52 weeks of public-metadata-derived history, SQLite operations storage, an interactive dashboard, and an optional Gemini/Google Search discovery scheduler.
+The application remains dependency-free at runtime: a Python API, explainable phase inference, 52 weeks of public-metadata-derived history, SQLite operations storage, an interactive dashboard, and an optional OpenRouter web-search discovery scheduler.
 
 ## Start here
 
@@ -30,7 +30,7 @@ The console stores technology configuration, run history, source health, evidenc
 
 A committed public-data cache lets the showcase start offline; `refresh_data.py` replaces it using the latest GitHub, Hacker News, and Google News RSS metadata. The **Run due technologies** console action collects weekly profiles plus quarterly profiles whose 12-week interval has elapsed.
 
-`GEMINI_API_KEY` is required only for weekly emerging-technology discovery. `GITHUB_TOKEN` is optional but recommended for reliable scheduled collection; use a fine-grained read-only token. Hacker News and Google News RSS use public endpoints. Discovery writes suggestions to the admin review queue and never changes public tracking automatically. See [the discovery guide](docs/DISCOVERY.md).
+`OPENROUTER_API_KEY` enables weekly emerging-technology discovery and the optional draft-profile assistant in the admin console. `GITHUB_TOKEN` is optional but recommended for reliable scheduled collection; use a fine-grained read-only token. Hacker News and Google News RSS use public endpoints. Discovery writes suggestions to the admin review queue and never changes public tracking automatically. See [the discovery guide](docs/DISCOVERY.md).
 
 For local source-health inspection and retry commands, see [scripts/README.md](scripts/README.md).
 
@@ -61,7 +61,7 @@ PYTHONPATH=backend/src python3 -m unittest discover -s backend/tests -v
 - Refresh the data cache immediately before publishing a demo.
 - Set a strong `ARGUS_ADMIN_TOKEN`, put `/api/v1/admin/*` behind real identity-aware authentication, and rate-limit refresh endpoints before exposing them publicly.
 - Add a project license that matches your intended distribution model.
-- Add secrets only through GitHub or deployment settings. Weekly discovery requires `GEMINI_API_KEY`; scheduled GitHub collection should use a read-only `GITHUB_TOKEN`.
+- Add secrets only through GitHub or deployment settings. LLM assistance requires `OPENROUTER_API_KEY`; scheduled GitHub collection should use a read-only `GITHUB_TOKEN`.
 
 For a production VM, use the [deployment runbook](docs/DEPLOYMENT.md). It builds an immutable image in GitHub Container Registry, keeps database state on the VM, and deploys only after the GitHub `production` environment is approved.
 

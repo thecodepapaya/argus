@@ -2,7 +2,7 @@
 
 **Status:** Accepted · **Date:** 2026-07-27
 
-Gemini with Google Search grounding may suggest emerging technologies, but it does
+OpenRouter web search may suggest emerging technologies, but it does
 not classify evidence, score phases, or publish technologies. Suggestions are
 schema-validated, persisted with sources, and require an administrator to create a
 draft followed by normal collection, validation, and activation.

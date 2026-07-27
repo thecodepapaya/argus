@@ -10,7 +10,7 @@ request IDs, structured access/error logs, refresh exclusion, readiness checks,
 and validation of cached snapshots before startup.
 
 `methodology.py` is the canonical public glossary and methodology contract.
-`discovery.py` is an optional Gemini/Google Search adapter that only produces
+`discovery.py` is an optional OpenRouter web-search adapter that only produces
 reviewable suggestions. Phase inference remains deterministic and does not use an
 LLM. See [the API inventory](../docs/API.md) and [implemented methodology](../docs/METHODOLOGY.md).
 

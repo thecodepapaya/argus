@@ -35,10 +35,10 @@ writes, and rollback on failed mutations.
 ## Weekly discovery and lifecycle cadence
 
 1. Run `python3 scripts/discover_technologies.py --dry-run` to verify scope,
-   model selection, plateau threshold, and whether a Gemini key is detected.
+   model selection, plateau threshold, and whether an OpenRouter key is detected.
 2. Inspect discovery runs and suggestions in `/admin` or
    `GET /api/v1/admin/discovery`.
-3. Failed Gemini calls are persisted and logged; the scheduler survives the cycle
+3. Failed OpenRouter calls are persisted and logged; the scheduler survives the cycle
    and retries at its next interval.
 4. Accepting a suggestion creates a draft only. Collect, validate, and activate it
    through the normal technology workflow.

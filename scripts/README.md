@@ -27,8 +27,8 @@ python3 scripts/retry_failed_sources.py --technology model-context-protocol
 # Inspect discovery configuration and weekly scope without an external call.
 python3 scripts/discover_technologies.py --dry-run
 
-# Run one Gemini + Google Search emerging-technology discovery.
-GEMINI_API_KEY=... python3 scripts/discover_technologies.py
+# Run one OpenRouter web-search emerging-technology discovery.
+OPENROUTER_API_KEY=... python3 scripts/discover_technologies.py
 
 # Run the interval scheduler used by Docker Compose (weekly by default).
 python3 scripts/discovery_scheduler.py
@@ -36,5 +36,5 @@ python3 scripts/discovery_scheduler.py
 
 `retry_failed_sources.py` makes live outbound calls to the configured public sources and saves a new operational run in the local SQLite database. It does not alter the committed fixture; use `refresh_data.py` when you intentionally want to update that showcase cache.
 
-Discovery is optional, requires `GEMINI_API_KEY`, and writes suggestions rather
+Discovery is optional, requires `OPENROUTER_API_KEY`, and writes suggestions rather
 than activating technologies. See [the discovery runbook](../docs/DISCOVERY.md).

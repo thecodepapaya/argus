@@ -15,6 +15,6 @@ Copy `.env.example` to `.env` and set `ARGUS_ADMIN_TOKEN` before starting:
 docker compose up --build
 ```
 
-Set `GEMINI_API_KEY` to enable discovery. Without it, the web tracker remains fully
+Set `OPENROUTER_API_KEY` to enable discovery and draft-profile assistance. Without it, the web tracker remains fully
 functional and the discovery service records a clear disabled/failure state rather
 than inventing suggestions. Both services share the `argus_data` SQLite volume.

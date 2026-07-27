@@ -12,6 +12,8 @@ services:
       ARGUS_ADMIN_TOKEN: ${ARGUS_ADMIN_TOKEN:?Set ARGUS_ADMIN_TOKEN in .env}
       ARGUS_DB_PATH: /app/data/state/argus.sqlite3
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ARGUS_LLM_MODEL: ${ARGUS_LLM_MODEL:-openai/gpt-4.1-mini}
     volumes:
       - argus_data:/app/data/state
     restart: unless-stopped
@@ -27,8 +29,9 @@ services:
     command: ["python", "scripts/discovery_scheduler.py"]
     environment:
       ARGUS_DB_PATH: /app/data/state/argus.sqlite3
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      ARGUS_DISCOVERY_MODEL: ${ARGUS_DISCOVERY_MODEL:-gemini-3.6-flash}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ARGUS_LLM_MODEL: ${ARGUS_LLM_MODEL:-openai/gpt-4.1-mini}
+      ARGUS_DISCOVERY_MODEL: ${ARGUS_DISCOVERY_MODEL:-openai/gpt-4.1-mini}
       ARGUS_DISCOVERY_INTERVAL_SECONDS: ${ARGUS_DISCOVERY_INTERVAL_SECONDS:-604800}
       ARGUS_PLATEAU_WEEKS: ${ARGUS_PLATEAU_WEEKS:-12}
     volumes:

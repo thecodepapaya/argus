@@ -18,6 +18,8 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 from argus.live import SOURCE_DISCLOSURE, collect_technology, load_live_cache
+from argus.enrichment import enrich_profile
+from argus.llm import configured as llm_configured
 from argus.methodology import public_methodology
 from argus.storage.operations import OperationsStore
 
@@ -215,7 +217,7 @@ class Handler(SimpleHTTPRequestHandler):
             status = query.get("status", [None])[0]
             try: suggestions = store.suggestions(status)
             except ValueError as error: raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_status", str(error)) from error
-            self._json({"items": suggestions, "runs": store.discovery_runs(), "configured": bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))}); return
+            self._json({"items": suggestions, "runs": store.discovery_runs(), "configured": llm_configured()}); return
         if route == "audit":
             try: limit = int(query.get("limit", ["100"])[0])
             except ValueError as error: raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_limit", "Audit limit must be an integer") from error
@@ -272,6 +274,7 @@ class Handler(SimpleHTTPRequestHandler):
         store = self.application.store
         try:
             if route == "refresh": self._json(self.application.refresh(payload.get("technology_id"), actor), HTTPStatus.CREATED); return
+            if route == "technologies/enrich": self._json(enrich_profile(payload.get("display_name"), payload.get("definition"))); return
             if route == "technologies": self._json(store.create_technology(payload, actor), HTTPStatus.CREATED); return
             parts = route.split("/")
             if len(parts) == 3 and parts[0] == "technologies":

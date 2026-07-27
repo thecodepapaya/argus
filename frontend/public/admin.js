@@ -126,13 +126,13 @@
     const data = await api('discovery');
     const latest = data.runs[0];
     $('#discovery-status').textContent = data.configured
-      ? (latest ? `Latest run: ${latest.status} · ${latest.candidate_count} candidates` : 'Gemini is configured; the first weekly run is pending.')
+      ? (latest ? `Latest run: ${latest.status} · ${latest.candidate_count} candidates` : 'OpenRouter is configured; the first weekly run is pending.')
       : 'Weekly discovery is currently paused.';
     const suggestions = data.items.filter(item => item.status === 'new');
     $('#discovery-list').innerHTML = suggestions.map(item => {
       const links = item.evidence_urls.map((url, index) => `<a href="${escapeHtml(safeHttpUrl(url))}" target="_blank" rel="noreferrer">Source ${index + 1} ↗</a>`).join('');
       return `<article class="suggestion-card panel"><div class="review-meta"><span class="tag">${esc(item.kind)}</span><span>${esc(item.emergence_score)}/100</span></div><h3>${esc(item.display_name)}</h3><p>${esc(item.definition)}</p><p>${esc(item.rationale)}</p><div class="suggestion-links">${links}</div><div class="card-actions"><button class="card-action" data-suggestion="${esc(item.id)}" data-decision="accept">Create draft</button><button class="card-action quiet" data-suggestion="${esc(item.id)}" data-decision="dismiss">Dismiss</button></div></article>`;
-    }).join('') || `<div class="empty-state panel"><b>${data.configured ? 'No candidates awaiting review' : 'Discovery needs a Gemini key'}</b><p>${data.configured ? 'The discovery queue is clear. The scheduler will check again on its next weekly run.' : 'Set GEMINI_API_KEY for the discovery service to search for emerging technologies. Suggestions always require operator review before they can become public.'}</p></div>`;
+    }).join('') || `<div class="empty-state panel"><b>${data.configured ? 'No candidates awaiting review' : 'Discovery needs an OpenRouter key'}</b><p>${data.configured ? 'The discovery queue is clear. The scheduler will check again on its next weekly run.' : 'Set OPENROUTER_API_KEY for the discovery service to search for emerging technologies. Suggestions always require operator review before they can become public.'}</p></div>`;
 
     document.querySelectorAll('[data-suggestion]').forEach(button => button.addEventListener('click', async () => {
       button.disabled = true;
@@ -204,6 +204,32 @@
       await loadTechnologies();
     } catch (error) {
       $('#technology-result').textContent = error.message;
+    }
+  });
+  $('#enrich-technology').addEventListener('click', async () => {
+    const form = $('#technology-form');
+    const displayName = form.elements.display_name.value.trim();
+    const definition = form.elements.definition.value.trim();
+    const button = $('#enrich-technology');
+    if (!displayName || !definition) {
+      $('#technology-result').textContent = 'Enter a technology name and short description first.';
+      return;
+    }
+    button.disabled = true;
+    button.textContent = 'Preparing draft…';
+    $('#technology-result').textContent = '';
+    try {
+      const data = await api('technologies/enrich', { method: 'POST', body: JSON.stringify({ display_name: displayName, definition }) });
+      const profile = data.profile;
+      for (const field of ['id', 'display_name', 'kind', 'definition', 'hn_query', 'news_query']) form.elements[field].value = profile[field] || '';
+      form.elements.github_repos.value = (profile.github_repos || []).join(', ');
+      form.elements.relevance_terms.value = (profile.relevance_terms || []).join(', ');
+      $('#technology-result').textContent = `Prepared with ${data.model}. Review the repositories, terms, and queries before creating the draft.`;
+    } catch (error) {
+      $('#technology-result').textContent = error.message;
+    } finally {
+      button.disabled = false;
+      button.innerHTML = 'Prepare fields with AI <span>→</span>';
     }
   });
 })().catch(error => {

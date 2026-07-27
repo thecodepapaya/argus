@@ -16,7 +16,7 @@ through `/admin` and authenticate with `ARGUS_ADMIN_TOKEN`.
 - Configuration-driven draft technology creation
 - Draft validation, 52-week collection/backfill, and activation guardrails
 - Weekly versus quarterly analysis cadence controls
-- Gemini/Google Search discovery suggestions with accept/dismiss decisions
+- OpenRouter web-search discovery suggestions with accept/dismiss decisions
 - Conversion of accepted suggestions into draft technology profiles
 - Audit-event persistence and a protected audit API
 - Inline success/error states; mutations are not automatically retried

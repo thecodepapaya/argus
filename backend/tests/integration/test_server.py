@@ -5,6 +5,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -111,9 +112,20 @@ class ServerIntegrationTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(payload["code"], "validation_error")
 
+    def test_admin_can_prepare_an_editable_draft_with_llm_assistance(self):
+        prepared = {"profile": {"id": "test-protocol", "display_name": "Test Protocol"}, "provider": "openrouter", "model": "test-model", "review_required": True}
+        with patch("argus.server.enrich_profile", return_value=prepared):
+            status, _, payload = self.request(
+                "/api/v1/admin/technologies/enrich", method="POST", token="test-token",
+                payload={"display_name": "Test Protocol", "definition": "A test protocol."},
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["profile"]["id"], "test-protocol")
+        self.assertTrue(payload["review_required"])
+
     def test_discovery_suggestion_requires_admin_acceptance_and_becomes_a_draft(self):
         self.application.store.save_discovery({
-            "provider": "google-gemini", "model": "test-model", "completed_at": "2026-07-27T00:00:00+00:00",
+            "provider": "openrouter", "model": "test-model", "completed_at": "2026-07-27T00:00:00+00:00",
             "grounding_sources": [], "search_queries": [],
             "candidates": [{
                 "slug": "integration-protocol", "display_name": "Integration Protocol", "kind": "protocol",

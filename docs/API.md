@@ -35,6 +35,7 @@ ARGUS serves JSON under `/api`. All responses include `X-Request-ID`; errors use
 | GET | `/api/v1/admin/evidence[?technology_id=&review_status=]` | Review ledger |
 | POST | `/api/v1/admin/evidence/{id}/review` | Set `unreviewed`, `approved`, or `excluded` |
 | GET/POST | `/api/v1/admin/technologies` | List all profiles or create a draft |
+| POST | `/api/v1/admin/technologies/enrich` | Prepare an editable draft profile from an administrator-provided name and description; requires `OPENROUTER_API_KEY` |
 | POST | `/api/v1/admin/technologies/{id}/validate` | Validate draft lifecycle state |
 | POST | `/api/v1/admin/technologies/{id}/backfill` | Collect a 52-week baseline and current evidence |
 | POST | `/api/v1/admin/technologies/{id}/activate` | Publish a validated profile with snapshots |

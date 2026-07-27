@@ -91,10 +91,12 @@
           <details class="new-tech panel">
             <summary><span><small>NEW PROFILE</small>Add a technology without changing code</span><i aria-hidden="true">+</i></summary>
             <form id="technology-form">
+              <p class="subtle">Start with a name and short description, then use OpenRouter to prepare editable search fields. Verify every suggested repository and query before you create the draft.</p>
               <label>Display name<input name="display_name" required placeholder="Example protocol" /></label>
+              <label>What it is<textarea name="definition" required placeholder="A short, unambiguous description of the technology."></textarea></label>
+              <button id="enrich-technology" type="button" class="secondary-action">Prepare fields with AI <span>→</span></button>
               <label>Slug <small>lowercase letters, numbers, and hyphens</small><input name="id" required pattern="[a-z0-9-]+" placeholder="example-protocol" /></label>
               <label>Type<input name="kind" required placeholder="protocol, framework, category" /></label>
-              <label>Definition<textarea name="definition" required placeholder="A short, unambiguous description of the technology."></textarea></label>
               <label>GitHub repositories <small>comma-separated owner/repository values</small><textarea name="github_repos" required placeholder="owner/repository"></textarea></label>
               <label>Hacker News query<input name="hn_query" required /></label>
               <label>Google News query<input name="news_query" required /></label>

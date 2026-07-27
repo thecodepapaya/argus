@@ -69,7 +69,8 @@ Optional settings:
 | Variable | Purpose |
 | --- | --- |
 | `GITHUB_TOKEN` | Fine-grained, read-only token to reduce GitHub collection rate-limit failures. |
-| `GEMINI_API_KEY` | Enables the weekly Gemini/Google Search technology-discovery scheduler. Leave empty to disable it. |
+| `OPENROUTER_API_KEY` | Enables the weekly OpenRouter web-search discovery scheduler and draft-profile assistant. Leave empty to disable them. |
+| `ARGUS_PUBLIC_URL` | The public HTTPS URL; used as the OpenRouter application referer. |
 | `ARGUS_DISCOVERY_*` | Controls discovery model, cadence, and plateau duration. |
 | `GHCR_USERNAME`, `GHCR_READ_TOKEN` | Needed only if the container package stays private. |
 
@@ -116,7 +117,7 @@ Add these **environment variables** (not secrets):
 | --- | --- |
 | `VM_DEPLOY_PATH` | `/opt/argus` |
 | `VM_PORT` | `22` (or your non-default SSH port) |
-| `ARGUS_PUBLIC_URL` | `https://your-argus-domain.example` |
+| `ARGUS_PUBLIC_URL` | `https://your-argus-domain.example` (use the same value in the VM `.env`) |
 | `DEPLOY_ENABLED` | Set to `true` only after the VM and secrets above are ready. |
 
 The workflow publishes the GHCR image after tests even while deployment is

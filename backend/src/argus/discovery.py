@@ -1,29 +1,25 @@
-"""Weekly emerging-technology discovery using Gemini with Google Search grounding."""
+"""Weekly emerging-technology discovery using OpenRouter web search."""
 
 from __future__ import annotations
 
 import json
 import os
 import re
-import time
 from datetime import UTC, datetime
 from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.parse import quote
-from urllib.request import Request, urlopen
+from argus.llm import DEFAULT_MODEL, LLMError, complete_json
 
-
-DEFAULT_MODEL = "gemini-3.6-flash"
-GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 CANDIDATE_SCHEMA = {
     "type": "object",
+    "additionalProperties": False,
     "properties": {
         "candidates": {
             "type": "array",
             "maxItems": 8,
             "items": {
                 "type": "object",
+                "additionalProperties": False,
                 "properties": {
                     "slug": {"type": "string"},
                     "display_name": {"type": "string"},
@@ -75,96 +71,52 @@ Only suggest a candidate when it is:
 Prefer 0-5 strong candidates over filling the list. Use lowercase hyphenated slugs. Include only real owner/repository values you can verify. Evidence URLs must be direct source URLs. Return JSON matching the supplied schema and no prose."""
 
 
-def _extract_text(response: dict[str, Any]) -> str:
-    try:
-        parts = response["candidates"][0]["content"]["parts"]
-    except (KeyError, IndexError, TypeError) as error:
-        reason = response.get("promptFeedback", {}).get("blockReason", "empty model response")
-        raise DiscoveryError(f"Gemini returned no discovery result: {reason}") from error
-    text = "".join(part.get("text", "") for part in parts)
-    if not text:
-        raise DiscoveryError("Gemini returned an empty discovery result")
-    return text
-
-
 def _validate_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
     slug = str(candidate.get("slug", "")).strip().lower()
     if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug):
-        raise DiscoveryError(f"Gemini returned an invalid candidate slug: {slug or '(empty)'}")
+        raise DiscoveryError(f"OpenRouter returned an invalid candidate slug: {slug or '(empty)'}")
     required_text = ("display_name", "kind", "definition", "rationale", "news_query", "hn_query")
     if any(not str(candidate.get(key, "")).strip() for key in required_text):
-        raise DiscoveryError(f"Gemini returned incomplete candidate metadata for {slug}")
+        raise DiscoveryError(f"OpenRouter returned incomplete candidate metadata for {slug}")
     score = candidate.get("emergence_score")
     if not isinstance(score, int) or not 0 <= score <= 100:
-        raise DiscoveryError(f"Gemini returned an invalid emergence score for {slug}")
+        raise DiscoveryError(f"OpenRouter returned an invalid emergence score for {slug}")
     repositories = candidate.get("github_repos", [])
     terms = candidate.get("relevance_terms", [])
     urls = candidate.get("evidence_urls", [])
     if not isinstance(repositories, list) or not repositories or any(not re.fullmatch(r"[^/\s]+/[^/\s]+", str(value)) for value in repositories):
-        raise DiscoveryError(f"Gemini returned invalid repositories for {slug}")
+        raise DiscoveryError(f"OpenRouter returned invalid repositories for {slug}")
     if not isinstance(terms, list) or not terms or any(not str(value).strip() for value in terms):
-        raise DiscoveryError(f"Gemini returned invalid relevance terms for {slug}")
+        raise DiscoveryError(f"OpenRouter returned invalid relevance terms for {slug}")
     if not isinstance(urls, list) or len(urls) < 2 or any(not str(value).startswith(("https://", "http://")) for value in urls):
-        raise DiscoveryError(f"Gemini returned fewer than two valid evidence URLs for {slug}")
+        raise DiscoveryError(f"OpenRouter returned fewer than two valid evidence URLs for {slug}")
     return {**candidate, "slug": slug, "github_repos": repositories, "relevance_terms": terms, "evidence_urls": urls}
 
 
 def discover(technologies: list[dict[str, Any]], api_key: str | None = None, model: str | None = None) -> dict[str, Any]:
     """Return validated, web-grounded candidates. The caller persists the result."""
-    key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    if not key:
-        raise DiscoveryError("GEMINI_API_KEY is not configured; weekly technology discovery is disabled")
-    selected_model = model or os.environ.get("ARGUS_DISCOVERY_MODEL", DEFAULT_MODEL)
-    endpoint = GEMINI_ENDPOINT.format(model=quote(selected_model, safe=".-"))
-    payload = {
-        "contents": [{"parts": [{"text": _prompt(technologies)}]}],
-        "tools": [{"google_search": {}}],
-        "generationConfig": {
-            "temperature": 0.2,
-            "responseMimeType": "application/json",
-            "responseSchema": CANDIDATE_SCHEMA,
-        },
-    }
-    request = Request(
-        endpoint,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", "x-goog-api-key": key, "User-Agent": "ARGUS-discovery/0.5"},
-        method="POST",
-    )
-    response: dict[str, Any] | None = None
-    for attempt in range(3):
-        try:
-            with urlopen(request, timeout=60) as raw:  # nosec B310: endpoint is a fixed Google HTTPS origin
-                response = json.loads(raw.read().decode("utf-8"))
-            break
-        except HTTPError as error:
-            detail = error.read(1000).decode("utf-8", errors="replace")
-            if error.code not in {429, 500, 502, 503, 504} or attempt == 2:
-                raise DiscoveryError(f"Gemini discovery request failed with HTTP {error.code}: {detail}") from error
-        except (URLError, TimeoutError, json.JSONDecodeError) as error:
-            if attempt == 2:
-                raise DiscoveryError(f"Gemini discovery request failed: {error}") from error
-        time.sleep(2 ** attempt)
-    if response is None:
-        raise DiscoveryError("Gemini discovery request did not return a response")
     try:
-        output = json.loads(_extract_text(response))
-    except json.JSONDecodeError as error:
-        raise DiscoveryError("Gemini discovery output was not valid JSON") from error
+        output, metadata = complete_json(
+            prompt=_prompt(technologies), schema_name="technology_candidates", schema=CANDIDATE_SCHEMA,
+            api_key=api_key, model=model or os.environ.get("ARGUS_DISCOVERY_MODEL", DEFAULT_MODEL), use_web_search=True,
+        )
+    except LLMError as error:
+        raise DiscoveryError(str(error)) from error
     candidates = [_validate_candidate(item) for item in output.get("candidates", [])]
     known_slugs = {item["id"] for item in technologies}
     candidates = [item for item in candidates if item["slug"] not in known_slugs]
-    grounding = response.get("candidates", [{}])[0].get("groundingMetadata", {})
+    annotations = metadata["message"].get("annotations", [])
+    if not isinstance(annotations, list):
+        annotations = []
     sources = [
-        {"title": chunk.get("web", {}).get("title", ""), "url": chunk.get("web", {}).get("uri", "")}
-        for chunk in grounding.get("groundingChunks", [])
-        if chunk.get("web", {}).get("uri")
+        {"title": item.get("url_citation", {}).get("title", ""), "url": item.get("url_citation", {}).get("url", "")}
+        for item in annotations if item.get("type") == "url_citation" and item.get("url_citation", {}).get("url")
     ]
     return {
-        "provider": "google-gemini",
-        "model": selected_model,
+        "provider": "openrouter",
+        "model": metadata["model"],
         "completed_at": datetime.now(UTC).isoformat(),
         "candidates": candidates,
         "grounding_sources": sources,
-        "search_queries": grounding.get("webSearchQueries", []),
+        "search_queries": [],
     }

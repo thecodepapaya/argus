@@ -56,7 +56,7 @@ def main() -> None:
                     log("discovery_completed", run_id=run_id, candidate_count=len(result["candidates"]))
                     wait_seconds = interval
                 except DiscoveryError as error:
-                    run_id = store.save_discovery_failure("google-gemini", model, str(error))
+                    run_id = store.save_discovery_failure("openrouter", model, str(error))
                     log("discovery_failed", run_id=run_id, error=str(error))
                     wait_seconds = interval
             else:

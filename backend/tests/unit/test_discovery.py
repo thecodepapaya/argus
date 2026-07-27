@@ -1,12 +1,15 @@
 import os
 import sys
+import json
 from pathlib import Path
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from argus.discovery import DiscoveryError, _validate_candidate, discover
+from argus.enrichment import enrich_profile
+from argus.llm import complete_json
 
 
 VALID_CANDIDATE = {
@@ -33,8 +36,25 @@ class DiscoveryTests(unittest.TestCase):
 
     def test_missing_api_key_fails_before_network_access(self):
         with patch.dict(os.environ, {}, clear=True):
-            with self.assertRaisesRegex(DiscoveryError, "GEMINI_API_KEY"):
+            with self.assertRaisesRegex(DiscoveryError, "OPENROUTER_API_KEY"):
                 discover([])
+            with self.assertRaisesRegex(ValueError, "OPENROUTER_API_KEY"):
+                enrich_profile("Test protocol", "A protocol used to verify optional LLM setup.")
+
+    def test_openrouter_request_uses_bearer_auth_structured_output_and_web_tool(self):
+        raw_response = {"model": "test-model", "choices": [{"message": {"content": '{"value":"ok"}', "annotations": []}}]}
+        raw = MagicMock()
+        raw.read.return_value = json.dumps(raw_response).encode("utf-8")
+        context = MagicMock()
+        context.__enter__.return_value = raw
+        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}, clear=True), patch("argus.llm.urlopen", return_value=context) as request_call:
+            result, _ = complete_json(prompt="Test", schema_name="test", schema={"type": "object"}, use_web_search=True)
+        self.assertEqual(result, {"value": "ok"})
+        request = request_call.call_args.args[0]
+        self.assertEqual(request.get_header("Authorization"), "Bearer test-key")
+        body = json.loads(request.data)
+        self.assertEqual(body["response_format"]["type"], "json_schema")
+        self.assertEqual(body["tools"], [{"type": "openrouter:web_search"}])
 
 
 if __name__ == "__main__":

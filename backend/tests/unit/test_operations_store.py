@@ -63,7 +63,7 @@ class OperationsStoreTests(unittest.TestCase):
 
     def test_discovery_suggestions_are_persisted_and_reviewable(self):
         result = {
-            "provider": "google-gemini",
+            "provider": "openrouter",
             "model": "test-model",
             "completed_at": "2026-07-27T00:00:00+00:00",
             "grounding_sources": [{"title": "Source", "url": "https://example.com"}],
