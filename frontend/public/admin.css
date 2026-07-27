@@ -171,6 +171,17 @@
   color: var(--muted);
 }
 
+.card-action.warning {
+  border-color: rgba(255, 189, 117, 0.35);
+  background: rgba(255, 189, 117, 0.04);
+  color: var(--orange);
+}
+
+.card-action.warning:hover:not(:disabled) {
+  border-color: var(--orange);
+  background: rgba(255, 189, 117, 0.1);
+}
+
 .primary-action:disabled,
 .secondary-action:disabled,
 .card-action:disabled {

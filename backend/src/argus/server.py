@@ -296,6 +296,7 @@ class Handler(SimpleHTTPRequestHandler):
                     run_id = store.save_collection(technology_id, collected, actor, "completed")
                     self._json({"run_id": run_id, "preview": collected["snapshots"][-1], "errors": collected["source_errors"]}, HTTPStatus.CREATED); return
                 if action == "activate": self._json(store.set_status(technology_id, "active", actor)); return
+                if action == "pause": self._json(store.set_status(technology_id, "paused", actor)); return
                 if action == "cadence": self._json(store.set_analysis_cadence(technology_id, str(payload.get("cadence", "")), actor)); return
             if len(parts) == 3 and parts[0] == "evidence" and parts[2] == "review":
                 store.review(parts[1], payload.get("status", "unreviewed"), str(payload.get("note", "")), actor)

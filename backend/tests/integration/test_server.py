@@ -127,6 +127,24 @@ class ServerIntegrationTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(payload["code"], "validation_error")
 
+    def test_admin_can_unpublish_and_republish_without_losing_data(self):
+        technology_id = "model-context-protocol"
+        status, _, payload = self.request(
+            f"/api/v1/admin/technologies/{technology_id}/pause",
+            method="POST", token="test-token", payload={},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["status"], "paused")
+        self.assertEqual(self.request(f"/api/v1/technologies/{technology_id}/snapshots/current")[0], 404)
+
+        status, _, payload = self.request(
+            f"/api/v1/admin/technologies/{technology_id}/activate",
+            method="POST", token="test-token", payload={},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["status"], "active")
+        self.assertEqual(self.request(f"/api/v1/technologies/{technology_id}/snapshots/current")[0], 200)
+
     def test_admin_can_prepare_an_editable_draft_with_llm_assistance(self):
         prepared = {"profile": {"id": "test-protocol", "display_name": "Test Protocol"}, "provider": "openrouter", "model": "test-model", "review_required": True}
         with patch("argus.server.enrich_profile", return_value=prepared):

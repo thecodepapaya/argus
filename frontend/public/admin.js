@@ -109,9 +109,11 @@
     if (technology.status === 'active') {
       const nextCadence = technology.analysis_cadence === 'weekly' ? 'quarterly' : 'weekly';
       actions.push(`<button class="card-action quiet" data-tech="${esc(technology.id)}" data-action="cadence" data-cadence="${nextCadence}">Switch to ${nextCadence}</button>`);
+      actions.push(`<button class="card-action warning" data-tech="${esc(technology.id)}" data-tech-name="${esc(technology.display_name)}" data-action="pause">Unpublish</button>`);
     }
-    if (technology.status === 'draft') actions.push(`<button class="card-action" data-tech="${esc(technology.id)}" data-action="validate">Validate profile</button>`);
+    if (technology.status === 'draft') actions.push(`<button class="card-action" data-tech="${esc(technology.id)}" data-action="validate">Mark profile reviewed</button>`);
     if (technology.status === 'validated') actions.push(`<button class="card-action" data-tech="${esc(technology.id)}" data-action="activate">Publish technology</button>`);
+    if (technology.status === 'paused') actions.push(`<button class="card-action" data-tech="${esc(technology.id)}" data-action="activate">Republish technology</button>`);
     return actions.join('');
   }
 
@@ -124,8 +126,9 @@
     $('#technology-admin-list').innerHTML = data.items.map(technology => `<article class="technology-admin-card panel"><div class="technology-card-meta"><span class="tech-badge ${esc(technology.status)}">${esc(technology.status)}</span><span class="tech-badge">${esc(technology.analysis_cadence)}</span></div><h3>${esc(technology.display_name)}</h3><p>${esc(technology.definition)}</p><div class="technology-card-facts"><span>Repositories<b>${(technology.github_repos || []).length}</b></span><span>Profile type<b>${esc(technology.kind)}</b></span></div><div class="card-actions">${technologyActions(technology)}</div></article>`).join('');
 
     document.querySelectorAll('[data-tech]').forEach(button => button.addEventListener('click', async () => {
+      if (button.dataset.action === 'pause' && !window.confirm(`Unpublish ${button.dataset.techName}? Its data will be retained and it can be republished later.`)) return;
       button.disabled = true;
-      const actionLabels = { backfill: 'Collection', cadence: 'Cadence update', validate: 'Validation', activate: 'Publication' };
+      const actionLabels = { backfill: 'Collection', cadence: 'Cadence update', validate: 'Profile review', activate: 'Publication', pause: 'Unpublish' };
       try {
         const body = button.dataset.action === 'cadence' ? JSON.stringify({ cadence: button.dataset.cadence }) : undefined;
         const timeoutMs = button.dataset.action === 'backfill' ? LONG_OPERATION_TIMEOUT_MS : undefined;
