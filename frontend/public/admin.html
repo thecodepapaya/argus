@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="/admin.css?v=0.10" />
   </head>
   <body>
-    <header class="topbar">
+    <header class="topbar admin-topbar">
       <a class="brand" href="/" aria-label="ARGUS homepage"><img class="brand-mark" src="/argus-mark.svg" alt="" /><span>ARGUS</span></a>
       <nav aria-label="Operations sections"><a href="/">Public overview</a><a href="#runs">Runs</a><a href="#evidence">Evidence</a><a href="#discovery">Discovery</a><a href="#technologies">Technologies</a><a href="#sources">Sources</a></nav>
       <span class="console-label"><i></i> Private console</span>
@@ -39,7 +39,22 @@
       </section>
 
       <section id="console" class="hidden">
-        <header class="admin-heading">
+        <div class="admin-shell">
+          <aside class="admin-sidebar" aria-label="Admin navigation">
+            <a class="admin-sidebar-brand" href="/" aria-label="ARGUS public overview"><img class="brand-mark" src="/argus-mark.svg" alt="" /><span><b>ARGUS</b><small>Operations</small></span></a>
+            <nav class="admin-sidebar-nav" aria-label="Console sections">
+              <a class="active" href="#overview"><span>01</span>Overview</a>
+              <a href="#runs"><span>02</span>Runs</a>
+              <a href="#evidence"><span>03</span>Evidence</a>
+              <a href="#discovery"><span>04</span>Discovery</a>
+              <a href="#technologies"><span>05</span>Technologies</a>
+              <a href="#sources"><span>06</span>Source health</a>
+            </nav>
+            <div class="admin-sidebar-footer"><span class="console-label"><i></i> Private console</span><a href="/">View public tracker <span>↗</span></a></div>
+          </aside>
+
+          <div class="admin-main">
+        <header id="overview" class="admin-heading">
           <div>
             <p class="eyebrow">OPERATIONS CONSOLE</p>
             <h1>Evidence in.<br /><em>Decisions out.</em></h1>
@@ -129,10 +144,12 @@
             <tbody id="source-rows"></tbody>
           </table></div>
         </section>
+          </div>
+        </div>
       </section>
     </main>
 
     <footer class="wrap footer"><span>ARGUS / PRIVATE OPERATIONS CONSOLE</span><span><a href="/">Public overview</a> · <a href="/faq">FAQ</a></span></footer>
-    <script src="/admin.js?v=0.11"></script>
+    <script src="/admin.js?v=0.12"></script>
   </body>
 </html>

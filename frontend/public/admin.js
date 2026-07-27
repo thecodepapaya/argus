@@ -30,7 +30,7 @@
       element = document.createElement('div');
       element.id = 'admin-message';
       element.setAttribute('role', 'status');
-      $('.admin').prepend(element);
+      ($('.admin-main') || $('.admin')).prepend(element);
     }
     element.className = `admin-message ${text ? type : 'hidden'}`;
     element.textContent = text;
@@ -179,6 +179,22 @@
     if (failure) message(describeError(failure.reason, 'Some console data could not be loaded'), 'error');
   }
 
+  function setupSidebarNavigation() {
+    const links = [...document.querySelectorAll('.admin-sidebar-nav a')];
+    const sections = links
+      .map(link => document.querySelector(link.getAttribute('href')))
+      .filter(Boolean);
+    if (!('IntersectionObserver' in window) || !sections.length) return;
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries
+        .filter(entry => entry.isIntersecting)
+        .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+      if (!visible) return;
+      links.forEach(link => link.classList.toggle('active', link.getAttribute('href') === `#${visible.target.id}`));
+    }, { rootMargin: '-18% 0px -68% 0px', threshold: [0.1, 0.4] });
+    sections.forEach(section => observer.observe(section));
+  }
+
   async function login() {
     state.token = $('#token').value;
     $('#login-button').disabled = true;
@@ -186,6 +202,8 @@
       await reload();
       $('#login').classList.add('hidden');
       $('#console').classList.remove('hidden');
+      document.body.classList.add('console-open');
+      setupSidebarNavigation();
       $('#login-error').textContent = '';
     } catch (error) {
       $('#login-error').textContent = describeError(error, 'Console access failed');
