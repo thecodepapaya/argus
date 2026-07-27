@@ -82,6 +82,13 @@ class ServerIntegrationTests(unittest.TestCase):
             self.assertIn("What the five phases mean", body)
             self.assertIn("not affiliated with or endorsed by Gartner", body)
 
+    def test_favicon_is_served_as_svg(self):
+        with urlopen(self.base_url + "/favicon.svg", timeout=5) as response:
+            body = response.read().decode("utf-8")
+            self.assertEqual(response.status, 200)
+            self.assertIn("image/svg+xml", response.headers["Content-Type"])
+            self.assertIn("<svg", body)
+
     def test_public_routes_remain_stable_under_concurrency(self):
         paths = [
             "/api/v1/overview",

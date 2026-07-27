@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Private ARGUS operations console for analysis runs, evidence review, source health, discovery, and technology configuration." />
     <title>ARGUS — Operations Console</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css?v=0.7" />
     <link rel="stylesheet" href="/operations.css?v=0.7" />
-    <link rel="stylesheet" href="/admin.css?v=0.8" />
+    <link rel="stylesheet" href="/admin.css?v=0.9" />
   </head>
   <body>
     <header class="topbar">
@@ -79,6 +80,7 @@
             <div><p class="eyebrow">EMERGING TECHNOLOGY DISCOVERY</p><h2>Candidate queue</h2></div>
             <p id="discovery-status" class="subtle"></p>
           </div>
+          <div id="discovery-error"></div>
           <div id="discovery-list" class="discovery-grid"></div>
         </section>
 
@@ -91,19 +93,29 @@
           <details class="new-tech panel">
             <summary><span><small>NEW PROFILE</small>Add a technology without changing code</span><i aria-hidden="true">+</i></summary>
             <form id="technology-form">
-              <p class="subtle">Start with a name and short description, then use OpenRouter to prepare editable search fields. Verify every suggested repository and query before you create the draft.</p>
-              <label>Display name<input name="display_name" required placeholder="Example protocol" /></label>
-              <label>What it is<textarea name="definition" required placeholder="A short, unambiguous description of the technology."></textarea></label>
-              <button id="enrich-technology" type="button" class="secondary-action">Prepare fields with AI <span>→</span></button>
-              <label>Slug <small>lowercase letters, numbers, and hyphens</small><input name="id" required pattern="[a-z0-9-]+" placeholder="example-protocol" /></label>
-              <label>Type<input name="kind" required placeholder="protocol, framework, category" /></label>
-              <label>GitHub repositories <small>comma-separated owner/repository values</small><textarea name="github_repos" required placeholder="owner/repository"></textarea></label>
-              <label>Hacker News query<input name="hn_query" required /></label>
-              <label>Google News query<input name="news_query" required /></label>
-              <label>Relevance terms <small>comma-separated matching terms</small><textarea name="relevance_terms" required></textarea></label>
-              <button type="submit" class="primary-action">Create draft <span>→</span></button>
+              <section class="profile-starter" aria-labelledby="profile-starter-title">
+                <div class="form-section-heading"><span>01</span><div><h3 id="profile-starter-title">Describe the technology</h3><p>OpenRouter can prepare the remaining fields from a clear name and description.</p></div></div>
+                <div class="starter-fields">
+                  <label>Display name<input name="display_name" required placeholder="Example protocol" /></label>
+                  <label>What it is<textarea name="definition" required placeholder="A short, unambiguous description of the technology."></textarea></label>
+                </div>
+                <div class="ai-action-row"><button id="enrich-technology" type="button" class="secondary-action">Prepare with AI <span>→</span></button><small>Generates an editable draft; nothing is published.</small></div>
+                <p id="technology-ai-result" class="inline-result hidden" role="status"></p>
+              </section>
+              <fieldset class="profile-details">
+                <legend><span>02</span><strong>Review profile details</strong></legend>
+                <p>Repositories and queries affect collection quality. Confirm them before creating the draft.</p>
+                <div class="profile-fields">
+                  <label>Slug <small>lowercase letters, numbers, and hyphens</small><input name="id" required pattern="[a-z0-9-]+" placeholder="example-protocol" /></label>
+                  <label>Type<input name="kind" required placeholder="protocol, framework, category" /></label>
+                  <label class="wide-field">GitHub repositories <small>comma-separated owner/repository values</small><textarea name="github_repos" required placeholder="owner/repository"></textarea></label>
+                  <label>Hacker News query<input name="hn_query" required placeholder="Example Protocol" /></label>
+                  <label>Google News query<input name="news_query" required placeholder="Example Protocol AI" /></label>
+                  <label class="wide-field">Relevance terms <small>comma-separated matching terms</small><textarea name="relevance_terms" required placeholder="example protocol, exampleprotocol"></textarea></label>
+                </div>
+              </fieldset>
+              <div class="create-profile-row"><button type="submit" class="primary-action">Create draft <span>→</span></button><p id="technology-result" class="inline-result hidden" role="status"></p></div>
             </form>
-            <p id="technology-result" class="form-result" role="status"></p>
           </details>
         </section>
 
@@ -121,6 +133,6 @@
     </main>
 
     <footer class="wrap footer"><span>ARGUS / PRIVATE OPERATIONS CONSOLE</span><span><a href="/">Public overview</a> · <a href="/faq">FAQ</a></span></footer>
-    <script src="/admin.js?v=0.8"></script>
+    <script src="/admin.js?v=0.9"></script>
   </body>
 </html>

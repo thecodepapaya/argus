@@ -1,5 +1,5 @@
 (async () => {
-  const { escapeHtml, plainText, requestJson, safeHttpUrl } = await import('/client.js?v=0.8');
+  const { escapeHtml, plainText, requestJson, safeHttpUrl } = await import('/client.js?v=0.9');
   const $ = (selector) => document.querySelector(selector);
   const esc = (value) => escapeHtml(plainText(value));
   const state = { token: '', evidence: [], evidenceVisible: 12, technologyNames: new Map() };
@@ -8,7 +8,20 @@
     if (!value) return '—';
     return new Date(`${value}T00:00:00Z`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   };
+  const friendlyTimestamp = (value) => value ? new Date(value).toLocaleString() : 'Unknown time';
   const technologyName = (id) => state.technologyNames.get(id) || String(id || 'System').replaceAll('-', ' ');
+  const describeError = (error, context) => {
+    const details = [context, error?.message || 'Unknown error'].filter(Boolean);
+    if (error?.code) details.push(`Code: ${error.code}`);
+    if (error?.requestId) details.push(`Request: ${error.requestId}`);
+    return details.join(' · ');
+  };
+
+  function inlineResult(selector, text = '', type = 'info') {
+    const element = $(selector);
+    element.textContent = text;
+    element.className = `inline-result ${text ? type : 'hidden'}`;
+  }
 
   function message(text = '', type = 'info') {
     let element = $('#admin-message');
@@ -41,7 +54,10 @@
 
     $('#run-rows').innerHTML = data.runs.map(run => {
       const warningCount = run.errors?.length || 0;
-      return `<tr><td><span class="status-pill ${warningCount ? 'warning' : ''}">${esc(run.status)}</span></td><td>${esc(technologyName(run.technology_id))}</td><td>${esc(friendlyDate(run.week))}</td><td>${esc(run.stage)}</td><td>${esc(run.details.documents ?? '—')}</td><td>${warningCount ? `<span class="warning">${warningCount} warning${warningCount > 1 ? 's' : ''}</span>` : '<span class="subtle">None</span>'}</td></tr>`;
+      const errors = warningCount
+        ? `<details class="run-errors"><summary>${warningCount} warning${warningCount > 1 ? 's' : ''}</summary><ul>${run.errors.map(error => `<li>${esc(error)}</li>`).join('')}</ul></details>`
+        : '<span class="subtle">None</span>';
+      return `<tr><td><span class="status-pill ${warningCount ? 'warning' : ''}">${esc(run.status)}</span></td><td>${esc(technologyName(run.technology_id))}</td><td>${esc(friendlyDate(run.week))}</td><td>${esc(run.stage)}</td><td>${esc(run.details.documents ?? '—')}</td><td>${errors}</td></tr>`;
     }).join('') || '<tr><td colspan="6" class="subtle">No analysis runs have been recorded.</td></tr>';
 
     $('#source-rows').innerHTML = data.sources.map(source => {
@@ -69,7 +85,7 @@
         message('Evidence decision saved.', 'success');
         await loadEvidence();
       } catch (error) {
-        message(`Decision was not saved: ${error.message}`, 'error');
+        message(describeError(error, 'Evidence decision was not saved'), 'error');
         select.disabled = false;
       }
     }));
@@ -115,7 +131,7 @@
         message(`${actionLabels[button.dataset.action] || 'Operation'} completed.`, 'success');
         await reload();
       } catch (error) {
-        message(`${actionLabels[button.dataset.action] || 'Operation'} failed: ${error.message}`, 'error');
+        message(describeError(error, `${actionLabels[button.dataset.action] || 'Operation'} failed`), 'error');
       } finally {
         button.disabled = false;
       }
@@ -128,6 +144,9 @@
     $('#discovery-status').textContent = data.configured
       ? (latest ? `Latest run: ${latest.status} · ${latest.candidate_count} candidates` : 'OpenRouter is configured; the first weekly run is pending.')
       : 'Weekly discovery is currently paused.';
+    $('#discovery-error').innerHTML = latest?.error
+      ? `<details class="operation-error" open><summary>Latest discovery run failed</summary><p>${esc(latest.model)} · ${esc(friendlyTimestamp(latest.started_at))} · Run ${esc(latest.id)}</p><code>${esc(latest.error)}</code></details>`
+      : '';
     const suggestions = data.items.filter(item => item.status === 'new');
     $('#discovery-list').innerHTML = suggestions.map(item => {
       const links = item.evidence_urls.map((url, index) => `<a href="${escapeHtml(safeHttpUrl(url))}" target="_blank" rel="noreferrer">Source ${index + 1} ↗</a>`).join('');
@@ -141,7 +160,7 @@
         message(button.dataset.decision === 'accept' ? 'Suggestion converted to a draft technology.' : 'Suggestion dismissed.', 'success');
         await Promise.all([loadDiscovery(), loadTechnologies()]);
       } catch (error) {
-        message(`Suggestion was not updated: ${error.message}`, 'error');
+        message(describeError(error, 'Suggestion was not updated'), 'error');
         button.disabled = false;
       }
     }));
@@ -152,7 +171,7 @@
     renderOverview(overview);
     const results = await Promise.allSettled([loadEvidence(), loadTechnologies(), loadDiscovery()]);
     const failure = results.find(result => result.status === 'rejected');
-    if (failure) message(`Some console data could not be loaded: ${failure.reason.message}`, 'error');
+    if (failure) message(describeError(failure.reason, 'Some console data could not be loaded'), 'error');
   }
 
   async function login() {
@@ -164,7 +183,7 @@
       $('#console').classList.remove('hidden');
       $('#login-error').textContent = '';
     } catch (error) {
-      $('#login-error').textContent = error.message;
+      $('#login-error').textContent = describeError(error, 'Console access failed');
     } finally {
       $('#login-button').disabled = false;
     }
@@ -172,8 +191,8 @@
 
   $('#login-button').addEventListener('click', login);
   $('#token').addEventListener('keydown', event => { if (event.key === 'Enter') login(); });
-  $('#evidence-filter').addEventListener('change', () => loadEvidence().catch(error => message(error.message, 'error')));
-  $('#evidence-tech-filter').addEventListener('change', () => loadEvidence().catch(error => message(error.message, 'error')));
+  $('#evidence-filter').addEventListener('change', () => loadEvidence().catch(error => message(describeError(error, 'Evidence filter failed'), 'error')));
+  $('#evidence-tech-filter').addEventListener('change', () => loadEvidence().catch(error => message(describeError(error, 'Technology filter failed'), 'error')));
   $('#evidence-more').addEventListener('click', () => { state.evidenceVisible += 12; renderEvidence(); });
   $('#refresh-all').addEventListener('click', async () => {
     const button = $('#refresh-all');
@@ -185,7 +204,7 @@
       await reload();
       message('Scheduled analysis completed.', 'success');
     } catch (error) {
-      message(`Analysis failed: ${error.message}`, 'error');
+      message(describeError(error, 'Scheduled analysis failed'), 'error');
     } finally {
       button.disabled = false;
       button.innerHTML = '<span aria-hidden="true">↻</span> Run scheduled analysis';
@@ -199,11 +218,12 @@
     profile.relevance_terms = profile.relevance_terms.split(',').map(value => value.trim()).filter(Boolean);
     try {
       const technology = await api('technologies', { method: 'POST', body: JSON.stringify(profile) });
-      $('#technology-result').textContent = `Draft “${technology.display_name}” created.`;
+      inlineResult('#technology-result', `Draft “${technology.display_name}” created.`, 'success');
       event.target.reset();
+      inlineResult('#technology-ai-result');
       await loadTechnologies();
     } catch (error) {
-      $('#technology-result').textContent = error.message;
+      inlineResult('#technology-result', describeError(error, 'Draft creation failed'), 'error');
     }
   });
   $('#enrich-technology').addEventListener('click', async () => {
@@ -212,27 +232,28 @@
     const definition = form.elements.definition.value.trim();
     const button = $('#enrich-technology');
     if (!displayName || !definition) {
-      $('#technology-result').textContent = 'Enter a technology name and short description first.';
+      inlineResult('#technology-ai-result', 'Enter a technology name and short description first.', 'error');
       return;
     }
     button.disabled = true;
     button.textContent = 'Preparing draft…';
-    $('#technology-result').textContent = '';
+    inlineResult('#technology-ai-result');
+    inlineResult('#technology-result');
     try {
       const data = await api('technologies/enrich', { method: 'POST', body: JSON.stringify({ display_name: displayName, definition }) });
       const profile = data.profile;
       for (const field of ['id', 'display_name', 'kind', 'definition', 'hn_query', 'news_query']) form.elements[field].value = profile[field] || '';
       form.elements.github_repos.value = (profile.github_repos || []).join(', ');
       form.elements.relevance_terms.value = (profile.relevance_terms || []).join(', ');
-      $('#technology-result').textContent = `Prepared with ${data.model}. Review the repositories, terms, and queries before creating the draft.`;
+      inlineResult('#technology-ai-result', `Prepared with ${data.model}. Review the repositories, terms, and queries before creating the draft.`, 'success');
     } catch (error) {
-      $('#technology-result').textContent = error.message;
+      inlineResult('#technology-ai-result', describeError(error, 'AI preparation failed'), 'error');
     } finally {
       button.disabled = false;
-      button.innerHTML = 'Prepare fields with AI <span>→</span>';
+      button.innerHTML = 'Prepare with AI <span>→</span>';
     }
   });
 })().catch(error => {
   const target = document.querySelector('#login-error');
-  if (target) target.textContent = `Console failed to initialize: ${error.message}`;
+  if (target) target.textContent = `Console failed to initialize · ${error.message || 'Unknown error'}${error.requestId ? ` · Request: ${error.requestId}` : ''}`;
 });
