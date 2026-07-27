@@ -2,6 +2,7 @@
   const { escapeHtml, plainText, requestJson, safeHttpUrl } = await import('/client.js?v=0.9');
   const $ = (selector) => document.querySelector(selector);
   const esc = (value) => escapeHtml(plainText(value));
+  const LONG_OPERATION_TIMEOUT_MS = 90000;
   const state = { token: '', evidence: [], evidenceVisible: 12, technologyNames: new Map() };
 
   const friendlyDate = (value) => {
@@ -127,7 +128,8 @@
       const actionLabels = { backfill: 'Collection', cadence: 'Cadence update', validate: 'Validation', activate: 'Publication' };
       try {
         const body = button.dataset.action === 'cadence' ? JSON.stringify({ cadence: button.dataset.cadence }) : undefined;
-        await api(`technologies/${encodeURIComponent(button.dataset.tech)}/${button.dataset.action}`, { method: 'POST', body });
+        const timeoutMs = button.dataset.action === 'backfill' ? LONG_OPERATION_TIMEOUT_MS : undefined;
+        await api(`technologies/${encodeURIComponent(button.dataset.tech)}/${button.dataset.action}`, { method: 'POST', body, timeoutMs });
         message(`${actionLabels[button.dataset.action] || 'Operation'} completed.`, 'success');
         await reload();
       } catch (error) {
@@ -200,7 +202,7 @@
     button.textContent = 'Analysis running…';
     message('Running all technologies currently due for analysis.');
     try {
-      await api('refresh', { method: 'POST', body: '{}' });
+      await api('refresh', { method: 'POST', body: '{}', timeoutMs: LONG_OPERATION_TIMEOUT_MS });
       await reload();
       message('Scheduled analysis completed.', 'success');
     } catch (error) {
@@ -240,7 +242,11 @@
     inlineResult('#technology-ai-result');
     inlineResult('#technology-result');
     try {
-      const data = await api('technologies/enrich', { method: 'POST', body: JSON.stringify({ display_name: displayName, definition }) });
+      const data = await api('technologies/enrich', {
+        method: 'POST',
+        body: JSON.stringify({ display_name: displayName, definition }),
+        timeoutMs: LONG_OPERATION_TIMEOUT_MS,
+      });
       const profile = data.profile;
       for (const field of ['id', 'display_name', 'kind', 'definition', 'hn_query', 'news_query']) form.elements[field].value = profile[field] || '';
       form.elements.github_repos.value = (profile.github_repos || []).join(', ');
