@@ -57,11 +57,17 @@ function setupSuggestionForm() {
   const toggle = $('#suggest-technology-toggle');
   const form = $('#technology-suggestion-form');
   const result = $('#technology-suggestion-result');
+  const close = $('#suggest-technology-close');
   toggle.addEventListener('click', () => {
     const opening = form.classList.contains('hidden');
     form.classList.toggle('hidden', !opening);
     toggle.setAttribute('aria-expanded', String(opening));
     if (opening) form.elements.name.focus();
+  });
+  close.addEventListener('click', () => {
+    form.classList.add('hidden');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.focus();
   });
   form.addEventListener('submit', async (event) => {
     event.preventDefault();

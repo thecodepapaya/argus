@@ -37,9 +37,11 @@
 
 /* Community suggestion is a focused contribution panel, not a fourth filter. */
 .technology-suggestion-form{grid-template-columns:minmax(210px,.82fr) minmax(290px,1.35fr) auto;gap:16px;margin:0 0 22px;padding:20px;background:linear-gradient(110deg,rgba(121,239,200,.06),rgba(16,23,19,.92) 45%)}
-.suggestion-form-intro{grid-column:1/-1;display:flex;align-items:end;justify-content:space-between;gap:28px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.suggestion-form-intro{position:relative;grid-column:1/-1;display:flex;align-items:end;justify-content:space-between;gap:28px;padding-bottom:16px;border-bottom:1px solid var(--line)}
 .suggestion-form-intro h3{margin:6px 0 0;font-size:18px;letter-spacing:-.03em}
 .suggestion-form-intro p{max-width:420px;margin:0;color:var(--muted);font-size:11px;line-height:1.55;text-align:right}
+.suggestion-close{position:absolute;top:-2px;right:0;display:grid;place-items:center;width:28px;height:28px;padding:0!important;border:1px solid var(--line)!important;border-radius:50%!important;background:transparent!important;color:var(--muted)!important;font:20px/1 Arial,sans-serif!important}.suggestion-close:hover{border-color:rgba(121,239,200,.65)!important;background:rgba(121,239,200,.08)!important;color:var(--ink)!important}
+.technology-suggestion-form label>span{display:flex;align-items:center;gap:7px}.technology-suggestion-form label>span small{margin:0;color:var(--muted);font-size:9px;line-height:1;text-transform:none;letter-spacing:0}
 .technology-suggestion-form>output{grid-column:1/-1;display:none;align-items:center;gap:9px;margin:0;padding:11px 12px;border:1px solid var(--line);border-radius:6px;background:rgba(255,255,255,.025);color:var(--muted);font-size:11px;line-height:1.45}
 .technology-suggestion-form>output.pending,.technology-suggestion-form>output.success,.technology-suggestion-form>output.error{display:flex}
 .technology-suggestion-form>output.success{color:var(--green);border-color:rgba(121,239,200,.28);background:rgba(121,239,200,.06)}
