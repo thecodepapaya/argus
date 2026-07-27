@@ -16,7 +16,7 @@ from argus.storage.operations import OperationsStore  # noqa: E402
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Discover emerging technologies with OpenRouter web search")
+    parser = argparse.ArgumentParser(description="Discover technology candidates with OpenRouter web search")
     parser.add_argument("--dry-run", action="store_true", help="Show configuration and weekly scope without calling OpenRouter")
     parser.add_argument("--plateau-weeks", type=int, default=int(os.environ.get("ARGUS_PLATEAU_WEEKS", "12")), help="Consecutive plateau weeks before quarterly monitoring")
     args = parser.parse_args()

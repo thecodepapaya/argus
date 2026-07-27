@@ -1,4 +1,4 @@
-"""Weekly emerging-technology discovery using OpenRouter web search."""
+"""Weekly technology-candidate discovery using OpenRouter web search."""
 
 from __future__ import annotations
 
@@ -52,12 +52,15 @@ def _prompt(technologies: list[dict[str, Any]]) -> str:
             "definition": item["definition"],
             "status": item["status"],
             "analysis_cadence": item.get("analysis_cadence", "weekly"),
+            "relevance_terms": item.get("relevance_terms", []),
         }
         for item in technologies
     ]
     return f"""You are the discovery analyst for ARGUS, an evidence-led technology hype and maturity tracker.
 
-Search current, reputable web sources for newly emerging AI infrastructure, protocols, developer tools, model-serving techniques, agent runtimes, evaluation methods, and interface standards that may warrant weekly lifecycle tracking.
+Search current, reputable web sources for AI infrastructure, protocols, developer tools, model-serving techniques, agent runtimes, evaluation methods, and interface standards that may warrant weekly lifecycle tracking.
+
+Build a balanced candidate queue. Look for both newly emerging technologies and well-known or moderately established technologies that have active public ecosystems but are missing from ARGUS. Do not limit the search to launches, announcements, or technologies that first appeared recently. A mature household-name category is still eligible if it is distinct, currently observable, and useful to compare on the ARGUS lifecycle; a broad, untrackable trend is not.
 
 Known or already monitored technologies (do not suggest duplicates or aliases):
 {json.dumps(known, ensure_ascii=False)}
@@ -65,10 +68,28 @@ Known or already monitored technologies (do not suggest duplicates or aliases):
 Only suggest a candidate when it is:
 - a distinct technology/category rather than a company, individual product release, model version, or broad trend;
 - supported by at least two recent, independent, attributable sources;
-- new enough that weekly attention/adoption/maturity analysis is useful;
+- active enough that recurring attention/adoption/maturity analysis is useful, whether it is emerging or established;
 - queryable through public news, Hacker News, or GitHub metadata.
 
-Prefer 0-5 strong candidates over filling the list. Use lowercase hyphenated slugs. Include only real owner/repository values you can verify. Evidence URLs must be direct source URLs. Return JSON matching the supplied schema and no prose."""
+The emergence_score field is a 0-100 tracking-priority score, not a novelty score. Assess it from distinctness, current public signal, source quality, and the value of tracking the category weekly. Prefer 0-5 strong candidates over filling the list, with a mix of emerging and established gaps when justified. Use lowercase hyphenated slugs. Include only real owner/repository values you can verify. Evidence URLs must be direct source URLs. Return JSON matching the supplied schema and no prose."""
+
+
+def _identity_keys(item: dict[str, Any]) -> set[str]:
+    """Return conservative exact identifiers used to suppress known technologies and aliases."""
+    values = [item.get("id", ""), item.get("slug", ""), item.get("display_name", "")]
+    values.extend(item.get("relevance_terms", []))
+    keys = set()
+    for value in values:
+        text = str(value).strip().lower()
+        normalized = re.sub(r"[^a-z0-9]+", "", text)
+        if normalized:
+            keys.add(normalized)
+        keys.update(
+            normalized_alias
+            for alias in re.findall(r"\(([^)]+)\)", text)
+            if (normalized_alias := re.sub(r"[^a-z0-9]+", "", alias.lower()))
+        )
+    return keys
 
 
 def _validate_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
@@ -103,8 +124,8 @@ def discover(technologies: list[dict[str, Any]], api_key: str | None = None, mod
     except LLMError as error:
         raise DiscoveryError(str(error)) from error
     candidates = [_validate_candidate(item) for item in output.get("candidates", [])]
-    known_slugs = {item["id"] for item in technologies}
-    candidates = [item for item in candidates if item["slug"] not in known_slugs]
+    known_identities = set().union(*(_identity_keys(item) for item in technologies)) if technologies else set()
+    candidates = [item for item in candidates if not (_identity_keys(item) & known_identities)]
     annotations = metadata["message"].get("annotations", [])
     if not isinstance(annotations, list):
         annotations = []

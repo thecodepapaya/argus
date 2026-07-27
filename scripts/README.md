@@ -27,7 +27,7 @@ python3 scripts/retry_failed_sources.py --technology model-context-protocol
 # Inspect discovery configuration and weekly scope without an external call.
 python3 scripts/discover_technologies.py --dry-run
 
-# Run one OpenRouter web-search emerging-technology discovery.
+# Run one OpenRouter web-search technology-candidate discovery.
 OPENROUTER_API_KEY=... python3 scripts/discover_technologies.py
 
 # Run the interval scheduler used by Docker Compose (weekly by default).

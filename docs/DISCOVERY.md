@@ -1,6 +1,6 @@
-# Emerging technology discovery
+# Technology discovery
 
-The optional `discovery` service runs weekly and proposes emerging AI technologies for review. It uses OpenRouter web search for research only; it does not score lifecycle phases or publish technologies.
+The optional `discovery` service runs weekly and proposes AI technologies for review. It searches for both emerging technologies and well-known or moderately established gaps in the tracked portfolio. It uses OpenRouter web search for research only; it does not score lifecycle phases or publish technologies.
 
 ## Configuration
 
@@ -17,7 +17,8 @@ The selected model must support structured output and the OpenRouter web-search 
 ## Boundaries
 
 - Discovery is separate from evidence scoring and lifecycle inference.
-- Candidates require a distinct slug, valid repository references, relevance terms, and at least two source URLs.
+- Candidates require a distinct slug, valid repository references, relevance terms, and at least two source URLs. Existing technologies and recognizable aliases are suppressed before suggestions are saved.
+- Candidate priority reflects public signal quality and the value of recurring tracking; it is not a measure of novelty.
 - Suggestions remain private until an administrator creates a draft, collects data, validates it, and activates it.
 - Draft-profile preparation fills editable fields from an admin-provided name and description. Repository and query suggestions require review before draft creation.
 

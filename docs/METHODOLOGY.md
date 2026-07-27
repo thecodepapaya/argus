@@ -13,7 +13,7 @@ ARGUS retains public metadata and short feed summaries, not article bodies. The 
 GitHub collection works anonymously but uses `GITHUB_TOKEN` when configured to
 avoid the low unauthenticated quota. The token does not change scoring.
 
-Exact normalized-title duplicates are removed. ARGUS does not currently perform semantic claim clustering, full-text extraction, organization-level production verification, or LLM classification of evidence. OpenRouter is used only for separate emerging-technology discovery and administrator-requested draft-profile preparation.
+Exact normalized-title duplicates are removed. ARGUS does not currently perform semantic claim clustering, full-text extraction, organization-level production verification, or LLM classification of evidence. OpenRouter is used only for separate technology-candidate discovery and administrator-requested draft-profile preparation.
 
 ## Signal dimensions
 

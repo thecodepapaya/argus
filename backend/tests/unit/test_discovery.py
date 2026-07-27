@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from argus.discovery import DiscoveryError, _validate_candidate, discover
+from argus.discovery import DiscoveryError, _identity_keys, _prompt, _validate_candidate, discover
 from argus.enrichment import enrich_profile
 from argus.llm import complete_json
 
@@ -33,6 +33,33 @@ class DiscoveryTests(unittest.TestCase):
         invalid = {**VALID_CANDIDATE, "evidence_urls": ["https://example.com/one"]}
         with self.assertRaisesRegex(DiscoveryError, "two valid evidence"):
             _validate_candidate(invalid)
+
+    def test_prompt_includes_established_portfolio_gaps_and_known_aliases(self):
+        prompt = _prompt([{
+            "id": "model-context-protocol",
+            "display_name": "Model Context Protocol (MCP)",
+            "definition": "An open AI integration protocol.",
+            "status": "active",
+            "relevance_terms": ["mcp protocol"],
+        }])
+        self.assertIn("well-known or moderately established technologies", prompt)
+        self.assertIn("not a novelty score", prompt)
+        self.assertIn("Model Context Protocol (MCP)", prompt)
+        self.assertIn("mcp protocol", prompt)
+        self.assertIn("mcp", _identity_keys({"display_name": "Model Context Protocol (MCP)"}))
+
+    def test_known_alias_candidate_is_suppressed_before_persistence(self):
+        alias_candidate = {**VALID_CANDIDATE, "slug": "mcp", "display_name": "MCP", "relevance_terms": ["mcp"]}
+        metadata = {"model": "test-model", "message": {"annotations": []}}
+        with patch("argus.discovery.complete_json", return_value=({"candidates": [alias_candidate]}, metadata)):
+            result = discover([{
+                "id": "model-context-protocol",
+                "display_name": "Model Context Protocol (MCP)",
+                "definition": "An open AI integration protocol.",
+                "status": "active",
+                "relevance_terms": ["mcp protocol"],
+            }], api_key="test-key")
+        self.assertEqual(result["candidates"], [])
 
     def test_missing_api_key_fails_before_network_access(self):
         with patch.dict(os.environ, {}, clear=True):
