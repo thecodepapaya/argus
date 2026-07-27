@@ -207,6 +207,7 @@ class Handler(SimpleHTTPRequestHandler):
             "__ARGUS_PAGE_TITLE__": title,
             "__ARGUS_PAGE_DESCRIPTION__": description[:300],
             "__ARGUS_PAGE_URL__": page_url,
+            "__ARGUS_TECHNOLOGY_NAME__": name,
         }.items():
             template = template.replace(placeholder, html.escape(value, quote=True))
         self._document(template, "text/html; charset=utf-8")

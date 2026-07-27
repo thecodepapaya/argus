@@ -91,6 +91,7 @@ class ServerIntegrationTests(unittest.TestCase):
         with urlopen(self.base_url + "/technologies/model-context-protocol", timeout=5) as response:
             body = response.read().decode("utf-8")
             self.assertIn("Model Context Protocol (MCP) hype &amp; maturity tracker | ARGUS", body)
+            self.assertIn("<h1>Model Context Protocol (MCP)</h1>", body)
             self.assertIn('rel="canonical" href="https://argus.thecodepapaya.dev/technologies/model-context-protocol"', body)
             self.assertIn('meta property="og:title"', body)
         with urlopen(self.base_url + "/robots.txt", timeout=5) as response:
