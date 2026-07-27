@@ -11,13 +11,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css?v=7f28ae5f" />
-    <link rel="stylesheet" href="/operations.css?v=b0f091e6" />
-    <link rel="stylesheet" href="/admin.css?v=99da907e" />
+    <link rel="stylesheet" href="/operations.css?v=49ee10c4" />
+    <link rel="stylesheet" href="/admin.css?v=ca16e70a" />
   </head>
   <body>
     <header class="topbar admin-topbar">
       <a class="brand" href="/" aria-label="ARGUS homepage"><img class="brand-mark" src="/argus-mark.svg" alt="" /><span>ARGUS</span></a>
-      <nav aria-label="Operations sections"><a href="/">Public overview</a><a href="#runs">Runs</a><a href="#evidence">Evidence</a><a href="#discovery">Discovery</a><a href="#technologies">Technologies</a><a href="#sources">Sources</a></nav>
+      <nav aria-label="Operations sections"><a href="/">Public overview</a><a href="#runs">Analysis runs</a><a href="#signal-review">Signal review</a><a href="#visitor-suggestions">Candidate queue</a><a href="#research-candidates">Research candidates</a><a href="#technologies">Technology profiles</a><a href="#new-technology">Add technology</a><a href="#sources">Source health</a></nav>
       <span class="console-label"><i></i> Private console</span>
     </header>
 
@@ -44,12 +44,14 @@
           <aside class="admin-sidebar" aria-label="Admin navigation">
             <a class="admin-sidebar-brand" href="/" aria-label="ARGUS public overview"><img class="brand-mark" src="/argus-mark.svg" alt="" /><span><b>ARGUS</b><small>Operations</small></span></a>
             <nav class="admin-sidebar-nav" aria-label="Console sections">
-              <a class="active" href="#overview"><span>01</span>Overview</a>
-              <a href="#runs"><span>02</span>Runs</a>
-              <a href="#evidence"><span>03</span>Evidence</a>
-              <a href="#discovery"><span>04</span>Discovery</a>
-              <a href="#technologies"><span>05</span>Technologies</a>
-              <a href="#sources"><span>06</span>Source health</a>
+              <a class="active" href="#overview"><span>01</span>At a glance</a>
+              <a href="#runs"><span>02</span>Analysis runs</a>
+              <a href="#signal-review"><span>03</span>Signal review</a>
+              <a href="#visitor-suggestions"><span>04</span>Candidate queue <i class="sidebar-dot hidden" data-queue-dot="visitor" aria-label="Visitor suggestions awaiting review"></i></a>
+              <a href="#research-candidates"><span>05</span>Research candidates <i class="sidebar-dot hidden" data-queue-dot="research" aria-label="Research candidates awaiting review"></i></a>
+              <a href="#technologies"><span>06</span>Technology profiles</a>
+              <a href="#new-technology"><span>07</span>Add technology</a>
+              <a href="#sources"><span>08</span>Source health</a>
             </nav>
             <div class="admin-sidebar-footer"><span class="console-label"><i></i> Private console</span><a href="/">View public tracker <span>↗</span></a></div>
           </aside>
@@ -79,9 +81,9 @@
           </table></div>
         </section>
 
-        <section id="evidence" class="admin-section admin-view">
+        <section id="signal-review" class="admin-section admin-view">
           <div class="section-heading">
-            <div><p class="eyebrow">EVIDENCE REVIEW</p><h2>Review queue</h2></div>
+            <div><p class="eyebrow">SIGNAL REVIEW</p><h2>Review incoming signals</h2></div>
             <p class="subtle">Approve useful signals or exclude evidence that should not influence future analysis.</p>
           </div>
           <div class="review-toolbar panel">
@@ -93,25 +95,27 @@
           <button id="evidence-more" class="secondary-action hidden" type="button">Show 12 more</button>
         </section>
 
-        <section id="discovery" class="admin-section admin-view">
+        <section id="visitor-suggestions" class="admin-section admin-view">
           <div class="section-heading">
-            <div><p class="eyebrow">TECHNOLOGY DISCOVERY</p><h2>Candidate queue</h2></div>
+            <div><p class="eyebrow">COMMUNITY INPUT</p><h2>Candidate queue</h2></div>
+            <p class="subtle">Visitor suggestions awaiting an operator decision.</p>
+          </div>
+          <div class="discovery-subheading"><p id="visitor-suggestion-count" class="subtle"></p></div>
+          <div id="visitor-suggestion-list" class="discovery-grid"></div>
+        </section>
+
+        <section id="research-candidates" class="admin-section admin-view">
+          <div class="section-heading">
+            <div><p class="eyebrow">WEEKLY RESEARCH</p><h2>Research candidates</h2></div>
             <p id="discovery-status" class="subtle"></p>
           </div>
           <div id="discovery-error"></div>
-          <section class="discovery-subsection" aria-labelledby="visitor-suggestions-heading">
-            <div class="discovery-subheading"><div><p class="eyebrow">COMMUNITY INPUT</p><h3 id="visitor-suggestions-heading">Suggested by visitors</h3></div><p id="visitor-suggestion-count" class="subtle"></p></div>
-            <div id="visitor-suggestion-list" class="discovery-grid"></div>
-          </section>
-          <section class="discovery-subsection" aria-labelledby="automated-suggestions-heading">
-            <div class="discovery-subheading"><div><p class="eyebrow">WEEKLY SCAN</p><h3 id="automated-suggestions-heading">Research candidates</h3></div></div>
-            <div id="discovery-list" class="discovery-grid"></div>
-          </section>
+          <div id="discovery-list" class="discovery-grid"></div>
         </section>
 
         <section id="technologies" class="admin-section admin-view">
           <div class="section-heading">
-            <div><p class="eyebrow">TRACKED TECHNOLOGIES</p><h2>Analysis configuration</h2></div>
+            <div><p class="eyebrow">TRACKED TECHNOLOGIES</p><h2>Technology profiles</h2></div>
             <p class="subtle">Collect immediately, adjust cadence, or move drafts through validation and publication.</p>
           </div>
           <div class="technology-filter-toolbar panel">
@@ -120,7 +124,14 @@
             <p id="technology-admin-count" aria-live="polite"></p>
           </div>
           <div id="technology-admin-list" class="technology-admin-grid"></div>
-          <details class="new-tech panel">
+        </section>
+
+        <section id="new-technology" class="admin-section admin-view">
+          <div class="section-heading">
+            <div><p class="eyebrow">NEW PROFILE</p><h2>Add a technology</h2></div>
+            <p class="subtle">Start with a clear name and description; ARGUS prepares an editable profile for review.</p>
+          </div>
+          <details class="new-tech panel" open>
             <summary><span><small>NEW PROFILE</small>Add a technology without changing code</span><i aria-hidden="true">+</i></summary>
             <form id="technology-form">
               <section class="profile-starter" aria-labelledby="profile-starter-title">
@@ -154,6 +165,7 @@
             <div><p class="eyebrow">SOURCE HEALTH</p><h2>Collection dependencies</h2></div>
             <p class="subtle">The most recent status for each configured public source.</p>
           </div>
+          <div class="source-filter-toolbar panel"><label>Status<select id="source-status-filter" aria-label="Filter sources by status"><option value="">All source statuses</option><option value="healthy">Healthy</option><option value="warning">Warning</option></select></label><p id="source-filter-count" aria-live="polite"></p></div>
           <div class="admin-table panel"><table>
             <thead><tr><th>Technology</th><th>Source</th><th>Class</th><th>Status</th><th>Latest warning</th></tr></thead>
             <tbody id="source-rows"></tbody>
@@ -165,6 +177,6 @@
     </main>
 
     <footer class="wrap footer"><span>ARGUS / PRIVATE OPERATIONS CONSOLE</span><span><a href="/">Public overview</a> · <a href="/faq">FAQ</a> · <a href="https://github.com/thecodepapaya/argus" target="_blank" rel="noreferrer" aria-label="ARGUS source code on GitHub"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.7 7.7 0 0 1 8 3.73c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg> GitHub ↗</a></span></footer>
-    <script src="/admin.js?v=1f2615c0"></script>
+    <script src="/admin.js?v=1bbd6777"></script>
   </body>
 </html>

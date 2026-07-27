@@ -112,6 +112,19 @@
   color: var(--lime);
 }
 
+.admin-sidebar-nav .sidebar-dot {
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--orange);
+  box-shadow: 0 0 8px rgba(255, 189, 117, .6);
+}
+
+.admin-sidebar-nav .sidebar-dot.hidden {
+  display: none;
+}
+
 .admin-sidebar-footer {
   display: grid;
   gap: 15px;
@@ -486,6 +499,49 @@
   gap: 14px;
   margin-bottom: 14px;
   padding: 16px;
+}
+
+.source-filter-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 16px;
+}
+
+.source-filter-toolbar label {
+  display: flex;
+  flex: 0 1 250px;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--muted);
+  font: 10px 'DM Mono', monospace;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.source-filter-toolbar select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  outline: 0;
+  background: #101713;
+  color: var(--ink);
+  padding: 10px 12px;
+  font: 12px Manrope, Arial, sans-serif;
+  text-transform: none;
+}
+
+.source-filter-toolbar select:focus {
+  border-color: rgba(121, 239, 200, .65);
+  box-shadow: 0 0 0 3px rgba(121, 239, 200, .08);
+}
+
+#source-filter-count {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font: 10px 'DM Mono', monospace;
 }
 
 .technology-filter-toolbar label {
@@ -1054,6 +1110,10 @@
     grid-template-columns: 1fr 1fr;
   }
 
+  .source-filter-toolbar {
+    align-items: end;
+  }
+
   #evidence-queue-count {
     grid-column: 1 / -1;
     text-align: left;
@@ -1089,6 +1149,19 @@
   .starter-fields,
   .profile-fields {
     grid-template-columns: 1fr;
+  }
+
+  .source-filter-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .source-filter-toolbar label {
+    flex-basis: auto;
+  }
+
+  #source-filter-count {
+    margin: 0;
   }
 
   .profile-fields .wide-field {

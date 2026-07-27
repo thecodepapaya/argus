@@ -3,7 +3,7 @@
   const $ = (selector) => document.querySelector(selector);
   const esc = (value) => escapeHtml(plainText(value));
   const LONG_OPERATION_TIMEOUT_MS = 90000;
-  const state = { token: '', evidence: [], evidenceVisible: 12, technologies: [], technologyNames: new Map() };
+  const state = { token: '', evidence: [], evidenceVisible: 12, technologies: [], sources: [], technologyNames: new Map() };
 
   const friendlyDate = (value) => {
     if (!value) return '—';
@@ -61,10 +61,20 @@
       return `<tr><td><span class="status-pill ${warningCount ? 'warning' : ''}">${esc(run.status)}</span></td><td>${esc(technologyName(run.technology_id))}</td><td>${esc(friendlyDate(run.week))}</td><td>${esc(run.stage)}</td><td>${esc(run.details.documents ?? '—')}</td><td>${errors}</td></tr>`;
     }).join('') || '<tr><td colspan="6" class="subtle">No analysis runs have been recorded.</td></tr>';
 
-    $('#source-rows').innerHTML = data.sources.map(source => {
+    state.sources = data.sources;
+    renderSources();
+  }
+
+  function renderSources() {
+    const status = $('#source-status-filter').value;
+    const sources = state.sources.filter(source => !status || (source.last_error ? 'warning' : 'healthy') === status);
+    $('#source-filter-count').textContent = sources.length === state.sources.length
+      ? `${sources.length} configured sources`
+      : `${sources.length} of ${state.sources.length} sources shown`;
+    $('#source-rows').innerHTML = sources.map(source => {
       const hasError = Boolean(source.last_error);
       return `<tr><td>${esc(technologyName(source.technology_id))}</td><td>${esc(source.name)}</td><td>${esc(source.source_class.replaceAll('_', ' '))}</td><td><span class="status-pill ${hasError ? 'warning' : ''}">${hasError ? 'warning' : 'healthy'}</span></td><td class="${hasError ? 'warning' : 'subtle'}">${esc(source.last_error || 'No current warning')}</td></tr>`;
-    }).join('');
+    }).join('') || '<tr><td colspan="5" class="subtle">No sources match this status.</td></tr>';
   }
 
   function evidenceCard(item) {
@@ -178,7 +188,7 @@
           form.elements.display_name.value = item.name;
           if (item.rationale) form.elements.definition.value = item.rationale;
           $('.new-tech').open = true;
-          window.location.hash = '#technologies';
+          window.location.hash = '#new-technology';
           form.elements.display_name.focus();
           message('Visitor suggestion copied into the editable technology profile.', 'success');
         } else {
@@ -191,6 +201,8 @@
       }
     }));
     const suggestions = data.items.filter(item => item.status === 'new');
+    document.querySelectorAll('[data-queue-dot="visitor"]').forEach(dot => dot.classList.toggle('hidden', visitorSuggestions.length === 0));
+    document.querySelectorAll('[data-queue-dot="research"]').forEach(dot => dot.classList.toggle('hidden', suggestions.length === 0));
     $('#discovery-list').innerHTML = suggestions.map(item => {
       const links = item.evidence_urls.map((url, index) => `<a href="${escapeHtml(safeHttpUrl(url))}" target="_blank" rel="noreferrer">Source ${index + 1} ↗</a>`).join('');
       return `<article class="suggestion-card panel"><div class="review-meta"><span class="tag">${esc(item.kind)}</span><span>Priority ${esc(item.emergence_score)}/100</span></div><h3>${esc(item.display_name)}</h3><p>${esc(item.definition)}</p><p>${esc(item.rationale)}</p><div class="suggestion-links">${links}</div><div class="card-actions"><button class="card-action" data-suggestion="${esc(item.id)}" data-decision="accept">Create draft</button><button class="card-action quiet" data-suggestion="${esc(item.id)}" data-decision="dismiss">Dismiss</button></div></article>`;
@@ -266,6 +278,7 @@
   $('#evidence-tech-filter').addEventListener('change', () => loadEvidence().catch(error => message(describeError(error, 'Technology filter failed'), 'error')));
   $('#technology-admin-search').addEventListener('input', renderTechnologyAdmin);
   $('#technology-admin-status').addEventListener('change', renderTechnologyAdmin);
+  $('#source-status-filter').addEventListener('change', renderSources);
   $('#evidence-more').addEventListener('click', () => { state.evidenceVisible += 12; renderEvidence(); });
   $('#refresh-all').addEventListener('click', async () => {
     const button = $('#refresh-all');
