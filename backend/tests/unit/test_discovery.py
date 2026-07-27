@@ -55,6 +55,10 @@ class DiscoveryTests(unittest.TestCase):
         body = json.loads(request.data)
         self.assertEqual(body["response_format"]["type"], "json_schema")
         self.assertEqual(body["tools"], [{"type": "openrouter:web_search"}])
+        # GPT-5 endpoints do not universally accept temperature. Keeping it out
+        # prevents strict OpenRouter routing from rejecting every endpoint.
+        self.assertNotIn("temperature", body)
+        self.assertEqual(body["provider"], {"require_parameters": True})
 
 
 if __name__ == "__main__":

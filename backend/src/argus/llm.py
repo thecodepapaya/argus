@@ -42,7 +42,6 @@ def complete_json(
             {"role": "system", "content": "You are a careful research assistant. Return only data matching the requested JSON schema."},
             {"role": "user", "content": prompt},
         ],
-        "temperature": 0.1,
         "stream": False,
         "response_format": {
             "type": "json_schema",
