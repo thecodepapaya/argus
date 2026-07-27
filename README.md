@@ -12,7 +12,7 @@
 
 ARGUS is an evidence-led technology hype and maturity tracker. It compares public attention with observable adoption and maturity signals, then places a technology on an explainable five-stage lifecycle.
 
-![ARGUS homepage](docs/images/argus-home.png)
+![ARGUS homepage](docs/images/argus-home.jpg)
 
 The included showcase follows a growing portfolio of AI technologies, including agent harnesses, browser agents, LangGraph, and Model Context Protocol (MCP). It runs on a dependency-free Python service, SQLite, public GitHub/Hacker News/Google News metadata, and a static web interface.
 
