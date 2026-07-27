@@ -49,6 +49,7 @@ docker compose up --build
 | `ARGUS_ADMIN_TOKEN` | Admin API token. Defaults to `argus-local` only outside Compose. |
 | `GITHUB_TOKEN` | Optional fine-grained read-only GitHub token for more reliable collection. |
 | `OPENROUTER_API_KEY` | Optional key for weekly discovery and admin draft-profile preparation. |
+| `ARGUS_CLOUDFLARE_ANALYTICS_TOKEN` | Optional Cloudflare Web Analytics site token; public pages only. |
 | `ARGUS_LLM_MODEL` | OpenRouter model for the draft-profile assistant. |
 | `ARGUS_DISCOVERY_MODEL` | OpenRouter model for weekly discovery. |
 

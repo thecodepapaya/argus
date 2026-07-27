@@ -12,6 +12,7 @@ services:
       ARGUS_DB_PATH: /app/data/state/argus.sqlite3
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ARGUS_CLOUDFLARE_ANALYTICS_TOKEN: ${ARGUS_CLOUDFLARE_ANALYTICS_TOKEN:-}
       ARGUS_LLM_MODEL: ${ARGUS_LLM_MODEL:-openai/gpt-4.1-mini}
       ARGUS_PUBLIC_URL: ${ARGUS_PUBLIC_URL:-}
     volumes:

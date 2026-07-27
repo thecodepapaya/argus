@@ -1,4 +1,5 @@
 import json
+import os
 import socket
 import sys
 import tempfile
@@ -106,6 +107,17 @@ class ServerIntegrationTests(unittest.TestCase):
             self.assertEqual(response.status, 200)
             self.assertIn("image/svg+xml", response.headers["Content-Type"])
             self.assertIn("<svg", body)
+
+    def test_cloudflare_analytics_loader_is_public_only_and_configuration_driven(self):
+        with patch.dict(os.environ, {"ARGUS_CLOUDFLARE_ANALYTICS_TOKEN": "test-site-token"}):
+            with urlopen(self.base_url + "/_argus/analytics.js", timeout=5) as response:
+                body = response.read().decode("utf-8")
+                self.assertEqual(response.status, 200)
+                self.assertIn("static.cloudflareinsights.com/beacon.min.js", body)
+                self.assertIn("test-site-token", body)
+                self.assertEqual(response.headers["Cache-Control"], "no-store")
+        with urlopen(self.base_url + "/admin", timeout=5) as response:
+            self.assertNotIn("/_argus/analytics.js", response.read().decode("utf-8"))
 
     def test_public_routes_remain_stable_under_concurrency(self):
         paths = [

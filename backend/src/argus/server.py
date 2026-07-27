@@ -162,6 +162,35 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(encoded)
 
+    def _cloudflare_analytics_script(self) -> None:
+        """Serve the optional public-only Cloudflare Web Analytics loader.
+
+        The site token is deliberately supplied through the runtime environment:
+        it is a public beacon identifier, but keeping it out of committed HTML
+        makes local development and forks analytics-free by default.
+        """
+        token = os.environ.get("ARGUS_CLOUDFLARE_ANALYTICS_TOKEN", "").strip()
+        if token:
+            body = (
+                "(() => {"
+                f"const token = {json.dumps(token)};"
+                "const beacon = document.createElement('script');"
+                "beacon.type = 'module';"
+                "beacon.src = 'https://static.cloudflareinsights.com/beacon.min.js';"
+                "beacon.dataset.cfBeacon = JSON.stringify({token});"
+                "document.head.append(beacon);"
+                "})();"
+            )
+        else:
+            body = "/* Cloudflare Web Analytics is not configured for this environment. */"
+        encoded = body.encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/javascript; charset=utf-8")
+        self.send_header("Content-Length", str(len(encoded)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(encoded)
+
     def _technology_page(self, technology_id: str) -> None:
         """Render technology-specific metadata around the shared interactive UI shell."""
         if not re.fullmatch(r"[a-z0-9-]{1,80}", technology_id):
@@ -223,6 +252,8 @@ class Handler(SimpleHTTPRequestHandler):
             parsed = urlparse(self.path)
             path = parsed.path.rstrip("/") or "/"
             if not path.startswith("/api/"):
+                if path == "/_argus/analytics.js":
+                    self._cloudflare_analytics_script(); return
                 if path == "/sitemap.xml":
                     self._sitemap(); return
                 if path.startswith("/technologies/"):
