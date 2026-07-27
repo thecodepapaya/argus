@@ -70,6 +70,7 @@ PYTHONPATH=backend/src python3 -m unittest discover -s backend/tests -v
 - [HTTP API](docs/API.md)
 - [Operations runbook](docs/runbooks/OPERATIONS.md)
 - [Technology discovery](docs/DISCOVERY.md)
+- [Source, confidence, and lifecycle resilience plan](docs/SOURCE_RELIABILITY_CONFIDENCE_LIFECYCLE_PLAN.md)
 - [Production deployment](docs/DEPLOYMENT.md)
 - [Runtime technology profiles](config/technologies/)
 - [Source and maintenance scripts](scripts/README.md)
