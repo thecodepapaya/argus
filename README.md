@@ -15,6 +15,7 @@ The application remains dependency-free at runtime: a Python API, explainable ph
 - [Implemented methodology](docs/METHODOLOGY.md)
 - [HTTP API](docs/API.md)
 - [Weekly technology discovery](docs/DISCOVERY.md)
+- [Production VM deployment](docs/DEPLOYMENT.md)
 
 ## Run locally
 
@@ -61,6 +62,8 @@ PYTHONPATH=backend/src python3 -m unittest discover -s backend/tests -v
 - Set a strong `ARGUS_ADMIN_TOKEN`, put `/api/v1/admin/*` behind real identity-aware authentication, and rate-limit refresh endpoints before exposing them publicly.
 - Add a project license that matches your intended distribution model.
 - Add secrets only through GitHub or deployment settings. Weekly discovery requires `GEMINI_API_KEY`; scheduled GitHub collection should use a read-only `GITHUB_TOKEN`.
+
+For a production VM, use the [deployment runbook](docs/DEPLOYMENT.md). It builds an immutable image in GitHub Container Registry, keeps database state on the VM, and deploys only after the GitHub `production` environment is approved.
 
 ## Repository layout
 

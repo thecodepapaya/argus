@@ -1,0 +1,41 @@
+# Production Compose definition. Keep this separate from compose.yaml so local
+# development remains simple and the public application port stays loopback-only.
+services:
+  argus:
+    image: ${ARGUS_IMAGE:?Set ARGUS_IMAGE to the immutable GHCR image tag}
+    ports:
+      - "${ARGUS_BIND_ADDRESS:-127.0.0.1}:${ARGUS_HOST_PORT:-8000}:8000"
+    environment:
+      ARGUS_HOST: 0.0.0.0
+      ARGUS_PORT: "8000"
+      ARGUS_ADMIN_TOKEN: ${ARGUS_ADMIN_TOKEN:?Set ARGUS_ADMIN_TOKEN in .env}
+      ARGUS_DB_PATH: /app/data/state/argus.sqlite3
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    volumes:
+      - argus_data:/app/data/state
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/ready', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  discovery:
+    image: ${ARGUS_IMAGE:?Set ARGUS_IMAGE to the immutable GHCR image tag}
+    command: ["python", "scripts/discovery_scheduler.py"]
+    environment:
+      ARGUS_DB_PATH: /app/data/state/argus.sqlite3
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ARGUS_DISCOVERY_MODEL: ${ARGUS_DISCOVERY_MODEL:-gemini-3.6-flash}
+      ARGUS_DISCOVERY_INTERVAL_SECONDS: ${ARGUS_DISCOVERY_INTERVAL_SECONDS:-604800}
+      ARGUS_PLATEAU_WEEKS: ${ARGUS_PLATEAU_WEEKS:-12}
+    volumes:
+      - argus_data:/app/data/state
+    depends_on:
+      argus:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  argus_data:

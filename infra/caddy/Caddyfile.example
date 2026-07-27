@@ -1,0 +1,6 @@
+# Replace argus.example.com with the hostname pointing to this VM, then install
+# this file as /etc/caddy/Caddyfile. Caddy provisions and renews TLS automatically.
+argus.example.com {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:8000
+}
