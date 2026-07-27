@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import hmac
 import json
 import os
@@ -26,6 +27,7 @@ from argus.storage.operations import OperationsStore
 
 ROOT = Path(__file__).resolve().parents[3]
 STATIC_ROOT = ROOT / "frontend" / "public"
+PUBLIC_URL = os.environ.get("ARGUS_PUBLIC_URL", "https://argus.thecodepapaya.dev").rstrip("/")
 
 
 def _now() -> str:
@@ -150,6 +152,43 @@ class Handler(SimpleHTTPRequestHandler):
     def _error(self, status: HTTPStatus, code: str, message: str) -> None:
         self._json({"error": message, "code": code, "request_id": self.request_id}, status)
 
+    def _document(self, body: str, content_type: str, status: HTTPStatus = HTTPStatus.OK) -> None:
+        """Send a public document without routing it through the JSON API."""
+        encoded = body.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(encoded)))
+        self.send_header("Cache-Control", "public, max-age=300")
+        self.end_headers()
+        self.wfile.write(encoded)
+
+    def _technology_page(self, technology_id: str) -> None:
+        """Render technology-specific metadata around the shared interactive UI shell."""
+        if not re.fullmatch(r"[a-z0-9-]{1,80}", technology_id):
+            raise ApiError(HTTPStatus.NOT_FOUND, "technology_not_found", "Technology not found")
+        technology = self.application.store.technology(technology_id)
+        if not technology or technology["status"] != "active":
+            raise ApiError(HTTPStatus.NOT_FOUND, "technology_not_found", "Technology not found")
+        name = str(technology["display_name"])
+        title = f"{name} hype & maturity tracker | ARGUS"
+        description = f"ARGUS tracks public evidence for {name}: {technology['definition']}"
+        page_url = f"{PUBLIC_URL}/technologies/{technology_id}"
+        template = (STATIC_ROOT / "index.html").read_text(encoding="utf-8")
+        for placeholder, value in {
+            "__ARGUS_PAGE_TITLE__": title,
+            "__ARGUS_PAGE_DESCRIPTION__": description[:300],
+            "__ARGUS_PAGE_URL__": page_url,
+        }.items():
+            template = template.replace(placeholder, html.escape(value, quote=True))
+        self._document(template, "text/html; charset=utf-8")
+
+    def _sitemap(self) -> None:
+        urls = [f"{PUBLIC_URL}/", f"{PUBLIC_URL}/faq"]
+        urls.extend(f"{PUBLIC_URL}/technologies/{item['id']}" for item in self.application.store.technologies())
+        entries = "".join(f"  <url><loc>{html.escape(url, quote=True)}</loc></url>\n" for url in urls)
+        body = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + entries + "</urlset>\n"
+        self._document(body, "application/xml; charset=utf-8")
+
     def _body(self) -> dict[str, Any]:
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -184,10 +223,13 @@ class Handler(SimpleHTTPRequestHandler):
             parsed = urlparse(self.path)
             path = parsed.path.rstrip("/") or "/"
             if not path.startswith("/api/"):
+                if path == "/sitemap.xml":
+                    self._sitemap(); return
+                if path.startswith("/technologies/"):
+                    self._technology_page(unquote(path.removeprefix("/technologies/"))); return
                 if path == "/": self.path = "/home.html"
                 elif path == "/admin": self.path = "/admin.html"
                 elif path == "/faq": self.path = "/faq.html"
-                elif path.startswith("/technologies/"): self.path = "/index.html"
                 return super().do_GET()
             self._dispatch_get(path, parse_qs(parsed.query))
         except (BrokenPipeError, ConnectionResetError):

@@ -82,6 +82,24 @@ class ServerIntegrationTests(unittest.TestCase):
             self.assertIn("What the five phases mean", body)
             self.assertIn("not affiliated with or endorsed by Gartner", body)
 
+    def test_public_pages_expose_search_metadata_and_sitemap(self):
+        with urlopen(self.base_url + "/", timeout=5) as response:
+            body = response.read().decode("utf-8")
+            self.assertIn('rel="canonical" href="https://argus.thecodepapaya.dev/"', body)
+            self.assertIn('application/ld+json', body)
+        with urlopen(self.base_url + "/technologies/model-context-protocol", timeout=5) as response:
+            body = response.read().decode("utf-8")
+            self.assertIn("Model Context Protocol (MCP) hype &amp; maturity tracker | ARGUS", body)
+            self.assertIn('rel="canonical" href="https://argus.thecodepapaya.dev/technologies/model-context-protocol"', body)
+            self.assertIn('meta property="og:title"', body)
+        with urlopen(self.base_url + "/robots.txt", timeout=5) as response:
+            self.assertIn("Sitemap: https://argus.thecodepapaya.dev/sitemap.xml", response.read().decode("utf-8"))
+        with urlopen(self.base_url + "/sitemap.xml", timeout=5) as response:
+            body = response.read().decode("utf-8")
+            self.assertIn("application/xml", response.headers["Content-Type"])
+            self.assertIn("/technologies/model-context-protocol", body)
+            self.assertNotIn("/admin", body)
+
     def test_favicon_is_served_as_svg(self):
         with urlopen(self.base_url + "/favicon.svg", timeout=5) as response:
             body = response.read().decode("utf-8")
