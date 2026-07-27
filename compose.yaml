@@ -1,0 +1,42 @@
+services:
+  argus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: argus-hype-tracker:local
+    ports:
+      - "${ARGUS_PORT:-8000}:8000"
+    environment:
+      ARGUS_HOST: 0.0.0.0
+      ARGUS_PORT: "8000"
+      ARGUS_ADMIN_TOKEN: ${ARGUS_ADMIN_TOKEN:?Set ARGUS_ADMIN_TOKEN in .env}
+      ARGUS_DB_PATH: /app/data/state/argus.sqlite3
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    volumes:
+      - argus_data:/app/data/state
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/ready', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  discovery:
+    image: argus-hype-tracker:local
+    command: ["python", "scripts/discovery_scheduler.py"]
+    environment:
+      ARGUS_DB_PATH: /app/data/state/argus.sqlite3
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ARGUS_DISCOVERY_MODEL: ${ARGUS_DISCOVERY_MODEL:-gemini-3.6-flash}
+      ARGUS_DISCOVERY_INTERVAL_SECONDS: ${ARGUS_DISCOVERY_INTERVAL_SECONDS:-604800}
+      ARGUS_PLATEAU_WEEKS: ${ARGUS_PLATEAU_WEEKS:-12}
+    volumes:
+      - argus_data:/app/data/state
+    depends_on:
+      argus:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  argus_data:

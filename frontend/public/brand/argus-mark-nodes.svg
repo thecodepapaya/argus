@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="ARGUS evidence nodes mark option">
+  <rect x="1.5" y="1.5" width="29" height="29" rx="5" fill="#18221d" stroke="#365345"/>
+  <path d="m7 22 6-10 5 7 7-9" fill="none" stroke="#52685c" stroke-width="1.4"/>
+  <circle cx="7" cy="22" r="2" fill="#79efc8"/><circle cx="13" cy="12" r="2" fill="#79efc8"/>
+  <circle cx="18" cy="19" r="2" fill="#d9ef83"/><circle cx="25" cy="10" r="2" fill="#d9ef83"/>
+</svg>

@@ -1,0 +1,13 @@
+{
+  "id": "ai-agent-harness",
+  "display_name": "AI agent harnesses",
+  "kind": "technology_category",
+  "definition": "Runtime and control-layer software that enables foundation models to plan, use tools, manage context, recover from failures, and expose observable multi-step execution.",
+  "tracking_start": "2025-01-06",
+  "snapshot_cadence": "weekly",
+  "status": "active",
+  "github_repos": ["langchain-ai/langgraph", "microsoft/autogen", "crewAIInc/crewAI", "openai/openai-agents-python"],
+  "hn_query": "AI agent",
+  "news_query": "\"AI agent\" harness OR \"agent framework\"",
+  "relevance_terms": ["agent harness", "agent framework", "agent runtime", "coding agent", "agentic", "multi-agent"]
+}

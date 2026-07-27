@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Private ARGUS operations console for analysis runs, evidence review, source health, discovery, and technology configuration." />
+    <title>ARGUS — Operations Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=0.7" />
+    <link rel="stylesheet" href="/operations.css?v=0.7" />
+    <link rel="stylesheet" href="/admin.css?v=0.8" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="ARGUS homepage"><img class="brand-mark" src="/argus-mark.svg" alt="" /><span>ARGUS</span></a>
+      <nav aria-label="Operations sections"><a href="/">Public overview</a><a href="#runs">Runs</a><a href="#evidence">Evidence</a><a href="#discovery">Discovery</a><a href="#technologies">Technologies</a><a href="#sources">Sources</a></nav>
+      <span class="console-label"><i></i> Private console</span>
+    </header>
+
+    <main class="wrap admin">
+      <section id="login" class="login-shell">
+        <div class="login-intro">
+          <p class="eyebrow">OPERATIONS ACCESS</p>
+          <h1>Keep the signal<br /><em>accountable.</em></h1>
+          <p>Review evidence, inspect failed sources, run scheduled analysis, and manage tracked technologies from one private workspace.</p>
+        </div>
+        <article class="login panel">
+          <span class="access-mark" aria-hidden="true">↳</span>
+          <h2>Open the console</h2>
+          <p>Enter the token configured by <code>ARGUS_ADMIN_TOKEN</code>. The local development default is <code>argus-local</code>.</p>
+          <label for="token">Admin token</label>
+          <input id="token" type="password" value="argus-local" autocomplete="current-password" />
+          <button id="login-button" class="primary-action" type="button">Enter console <span>→</span></button>
+          <p id="login-error" class="form-error" role="alert"></p>
+        </article>
+      </section>
+
+      <section id="console" class="hidden">
+        <header class="admin-heading">
+          <div>
+            <p class="eyebrow">OPERATIONS CONSOLE</p>
+            <h1>Evidence in.<br /><em>Decisions out.</em></h1>
+            <p class="admin-lede">Monitor scheduled analysis, resolve collection warnings, review the evidence ledger, and control what reaches the public tracker.</p>
+          </div>
+          <button id="refresh-all" class="primary-action" type="button"><span aria-hidden="true">↻</span> Run scheduled analysis</button>
+        </header>
+
+        <section id="admin-health" class="admin-summary" aria-label="Operational summary"></section>
+
+        <section id="runs" class="admin-section first-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">RECENT RUNS</p><h2>Collection and publication</h2></div>
+            <p class="subtle">Latest pipeline outcomes across all tracked technologies.</p>
+          </div>
+          <div class="admin-table panel"><table>
+            <thead><tr><th>Status</th><th>Technology</th><th>Week</th><th>Stage</th><th>Signals</th><th>Warnings</th></tr></thead>
+            <tbody id="run-rows"></tbody>
+          </table></div>
+        </section>
+
+        <section id="evidence" class="admin-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">EVIDENCE REVIEW</p><h2>Review queue</h2></div>
+            <p class="subtle">Approve useful signals or exclude evidence that should not influence future analysis.</p>
+          </div>
+          <div class="review-toolbar panel">
+            <label>Technology<select id="evidence-tech-filter" aria-label="Filter evidence by technology"><option value="">All technologies</option></select></label>
+            <label>Decision<select id="evidence-filter" aria-label="Filter evidence by review state"><option value="">All decisions</option><option value="unreviewed">Awaiting review</option><option value="approved">Approved</option><option value="excluded">Excluded</option></select></label>
+            <p id="evidence-queue-count" aria-live="polite"></p>
+          </div>
+          <div id="admin-evidence" class="admin-evidence"></div>
+          <button id="evidence-more" class="secondary-action hidden" type="button">Show 12 more</button>
+        </section>
+
+        <section id="discovery" class="admin-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">EMERGING TECHNOLOGY DISCOVERY</p><h2>Candidate queue</h2></div>
+            <p id="discovery-status" class="subtle"></p>
+          </div>
+          <div id="discovery-list" class="discovery-grid"></div>
+        </section>
+
+        <section id="technologies" class="admin-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">TRACKED TECHNOLOGIES</p><h2>Analysis configuration</h2></div>
+            <p class="subtle">Collect immediately, adjust cadence, or move drafts through validation and publication.</p>
+          </div>
+          <div id="technology-admin-list" class="technology-admin-grid"></div>
+          <details class="new-tech panel">
+            <summary><span><small>NEW PROFILE</small>Add a technology without changing code</span><i aria-hidden="true">+</i></summary>
+            <form id="technology-form">
+              <label>Display name<input name="display_name" required placeholder="Example protocol" /></label>
+              <label>Slug <small>lowercase letters, numbers, and hyphens</small><input name="id" required pattern="[a-z0-9-]+" placeholder="example-protocol" /></label>
+              <label>Type<input name="kind" required placeholder="protocol, framework, category" /></label>
+              <label>Definition<textarea name="definition" required placeholder="A short, unambiguous description of the technology."></textarea></label>
+              <label>GitHub repositories <small>comma-separated owner/repository values</small><textarea name="github_repos" required placeholder="owner/repository"></textarea></label>
+              <label>Hacker News query<input name="hn_query" required /></label>
+              <label>Google News query<input name="news_query" required /></label>
+              <label>Relevance terms <small>comma-separated matching terms</small><textarea name="relevance_terms" required></textarea></label>
+              <button type="submit" class="primary-action">Create draft <span>→</span></button>
+            </form>
+            <p id="technology-result" class="form-result" role="status"></p>
+          </details>
+        </section>
+
+        <section id="sources" class="admin-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">SOURCE HEALTH</p><h2>Collection dependencies</h2></div>
+            <p class="subtle">The most recent status for each configured public source.</p>
+          </div>
+          <div class="admin-table panel"><table>
+            <thead><tr><th>Technology</th><th>Source</th><th>Class</th><th>Status</th><th>Latest warning</th></tr></thead>
+            <tbody id="source-rows"></tbody>
+          </table></div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="wrap footer"><span>ARGUS / PRIVATE OPERATIONS CONSOLE</span><span><a href="/">Public overview</a> · <a href="/faq">FAQ</a></span></footer>
+    <script src="/admin.js?v=0.8"></script>
+  </body>
+</html>

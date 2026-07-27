@@ -1,0 +1,14 @@
+/* Vector-only marker avoids the rectangular compositing artifact of SVG blur filters. */
+.marker-halo {
+  fill: rgba(217, 239, 131, 0.08);
+}
+
+.marker-ring {
+  fill: #18221d;
+  stroke: rgba(217, 239, 131, 0.7);
+  stroke-width: 1.2;
+}
+
+.marker {
+  fill: var(--lime);
+}

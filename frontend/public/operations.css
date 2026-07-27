@@ -1,0 +1,34 @@
+.home{padding:86px 0}.home h1{font-size:clamp(46px,7vw,82px);line-height:.96;letter-spacing:-.07em;margin:16px 0}.home h1 em{font:400 1em Georgia,serif;color:var(--lime)}.lede{max-width:550px;color:var(--muted);line-height:1.7}.admin-link{font:11px 'DM Mono',monospace;color:var(--green);text-decoration:none}.health{display:flex;gap:34px;padding:20px;margin:55px 0 90px}.health div{display:flex;flex-direction:column;gap:6px}.health b{font-size:27px;color:var(--lime)}.health span,.tech-card small{font:10px 'DM Mono',monospace;color:var(--muted)}.technology-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:14px}.tech-card{display:block;padding:24px;text-decoration:none;color:var(--ink);transition:transform .15s,border-color .15s}.tech-card:hover{transform:translateY(-3px);border-color:rgba(121,239,200,.6)}.tech-card h3{font-size:25px;letter-spacing:-.04em;margin:26px 0 10px}.tech-card p{font-size:13px;line-height:1.6;color:var(--muted);min-height:62px}.signal,.run-state{font:10px 'DM Mono',monospace;text-transform:uppercase;color:var(--lime)}.signal.low,.run-state.partial,.warning{color:var(--orange)!important}.phase-line{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:18px;margin-top:20px;font-size:12px}.phase-line span{color:var(--green)}.tech-metrics{display:flex;gap:16px;margin:16px 0}.tech-metrics span{font-size:10px;color:var(--muted)}.tech-metrics b{color:var(--ink);display:block;font-size:14px}.direction-list{display:grid;gap:5px;margin:16px 0 0;padding-top:13px;border-top:1px solid var(--line)}.direction-list span{font:10px 'DM Mono',monospace;color:var(--muted)}.direction-list b{color:var(--ink);font-weight:500}.activity{margin-top:100px}.activity-list{padding:8px 20px}.activity-list div{display:grid;grid-template-columns:100px 1fr 150px 130px;padding:15px 0;border-bottom:1px solid var(--line);font-size:12px}.activity-list div:last-child{border:0}@media(max-width:700px){.health{gap:18px;margin-bottom:60px}.activity-list div{grid-template-columns:1fr 1fr;gap:8px}.topbar nav{display:none}}
+
+.tech-card .tech-description{color:var(--ink);font-size:12px;min-height:58px}.tech-card .tech-read{font-size:11px;min-height:0;margin-top:10px}
+.health .load-error{width:100%}.load-error b{font-size:15px;color:var(--ink)}.load-error button{width:max-content;border:1px solid var(--green);background:transparent;color:var(--green);padding:8px 11px;cursor:pointer;font:11px 'DM Mono',monospace}
+
+/* Public portfolio summary: scan as three insights, not operational counters. */
+.home .health{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0}
+.home .health div{min-width:0;padding:3px 22px;border-right:1px solid var(--line)}
+.home .health div:first-child{padding-left:0}
+.home .health div:last-child{padding-right:0;border-right:0}
+.home .health b{font-size:clamp(17px,2vw,25px);line-height:1.15;overflow-wrap:anywhere}
+.home .health b i{font:500 12px 'DM Mono',monospace;color:var(--ink);white-space:nowrap}
+.tech-card h3 a,.tech-card .phase-line a{color:inherit;text-decoration:none}.tech-card .phase-line a{color:var(--green)}
+.portfolio-card{display:flex;flex-direction:column;min-height:390px;cursor:pointer}
+.portfolio-card:focus-visible{outline:2px solid var(--lime);outline-offset:4px;transform:translateY(-3px);border-color:rgba(121,239,200,.75)}
+.portfolio-card h3{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin:24px 0 10px}
+.portfolio-card h3>span{color:var(--green);font:16px 'DM Mono',monospace;transition:transform .15s}
+.portfolio-card:hover h3>span,.portfolio-card:focus-visible h3>span{transform:translate(3px,-3px)}
+.portfolio-card .tech-description{display:-webkit-box;min-height:0;margin:0 0 22px;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;line-height:1.55;color:var(--muted)}
+.portfolio-card .phase-line{display:grid;gap:5px;justify-content:stretch;margin-top:auto;padding-top:16px}
+.portfolio-card .phase-line small{color:var(--muted);font:9px 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.06em}
+.portfolio-card .phase-line b{color:var(--green);font-size:13px;font-weight:600}
+.portfolio-card .tech-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0}
+.portfolio-card .tech-metrics>span{padding:10px;border:1px solid var(--line);border-radius:8px}
+.portfolio-card .tech-metrics b{margin-top:5px;font-size:17px}
+.portfolio-card .direction-list{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0;padding-top:0;border-top:0}
+.movement-badge{display:grid;gap:4px;padding:9px 10px;border-radius:8px;background:rgba(255,255,255,.025)}
+.movement-badge small{font-size:8px!important;text-transform:uppercase;letter-spacing:.05em}
+.movement-badge b{font:500 10px 'DM Mono',monospace!important;text-transform:capitalize}
+.movement-badge.positive b{color:var(--lime)}.movement-badge.negative b{color:var(--orange)}.movement-badge.steady b{color:var(--muted)}
+.portfolio-card>.warning{display:block;margin-top:12px}
+.home .health div:last-child .tooltip,.technology-grid .tech-card:nth-child(3n) .tooltip{left:auto;right:0}
+@media(min-width:700px) and (max-width:1040px){.technology-grid .tech-card:nth-child(2n) .tooltip{left:auto;right:0}}
+@media(max-width:700px){.home .health{grid-template-columns:1fr;gap:16px}.home .health div,.home .health div:first-child,.home .health div:last-child{padding:0 0 16px;border-right:0;border-bottom:1px solid var(--line)}.home .health div:last-child{padding-bottom:0;border-bottom:0}.portfolio-card{min-height:0}}

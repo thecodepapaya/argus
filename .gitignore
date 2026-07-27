@@ -1,0 +1,49 @@
+# Operating systems and editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# JavaScript / TypeScript
+node_modules/
+.next/
+coverage/
+*.tsbuildinfo
+
+# Local databases, queues, logs, and object-store state
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.log
+.local/
+
+# Ingested or generated data must not be committed. Curated fixtures are allowed.
+data/raw/**
+data/normalized/**
+data/derived/**
+data/exports/**
+!data/fixtures/**
+
+# Generated reports and temporary artifacts
+reports/
+tmp/

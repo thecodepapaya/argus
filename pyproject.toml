@@ -1,0 +1,11 @@
+[project]
+name = "argus-hype-tracker"
+version = "0.5.0"
+description = "An explainable technology hype and maturity tracker."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Proprietary — choose a license before public redistribution"}
+authors = [{name = "ARGUS contributors"}]
+
+[tool.unittest]
+start-directory = "backend/tests"

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="ARGUS explains the gap between AI technology expectations and demonstrated adoption." />
+    <title>ARGUS — Technology Hype & Maturity Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=0.6" />
+    <link rel="stylesheet" href="/showcase.css?v=0.6" />
+    <link rel="stylesheet" href="/chart.css?v=0.6" />
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="ARGUS homepage"><img class="brand-mark" src="/argus-mark.svg" alt="" /><span>ARGUS</span></a>
+      <nav aria-label="Primary navigation"><a href="/">Overview</a><a href="#cycle">Lifecycle</a><a href="#evidence">Evidence</a><a href="#method">Method</a><a href="/faq">FAQ</a></nav>
+      <div class="live" title="Active technologies receive a new evidence-led estimate each week"><i></i> Updated weekly</div>
+    </header>
+
+    <main id="top" class="detail-main">
+
+      <section class="wrap status-grid" aria-label="Current ARGUS estimate">
+        <article class="phase-card panel">
+          <div class="card-top"><span class="eyebrow">CURRENT READ</span><span id="snapshot-week" class="date">—</span></div>
+          <p class="phase-name" id="phase-label">Loading estimate…</p>
+          <div class="confidence-row"><span id="confidence-dot" class="confidence-dot"></span><span id="confidence-label">— confidence</span><span class="divider"></span><span id="movement-label">—</span></div>
+          <p id="phase-summary" class="phase-summary">Connecting to the local evidence store.</p>
+          <div id="movement-comparison" class="movement-comparison" aria-label="Movement over time"></div>
+        </article>
+        <article class="metric-card panel"><span class="eyebrow" id="hype-gap-label">HYPE GAP</span><strong id="hype-gap">—</strong><p>expectations minus verified adoption</p></article>
+        <article class="metric-card panel"><span class="eyebrow" id="coverage-label">SOURCE COVERAGE</span><strong id="coverage">—</strong><p id="coverage-detail">weighted public signals</p></article>
+      </section>
+      <p id="source-note" class="wrap source-note" role="status"></p>
+
+      <section id="cycle" class="wrap cycle-section">
+        <div class="section-heading"><div><p class="eyebrow">LIFECYCLE POSITION</p><h2>Where the category is learning</h2></div><p class="subtle">Phase is inferred from six signal dimensions, not internet sentiment alone.</p></div>
+        <div class="curve-panel panel">
+          <div class="axis-label y-axis">PUBLIC EXPECTATIONS</div>
+          <svg class="cycle-chart" viewBox="0 0 1120 430" role="img" aria-labelledby="curve-title curve-desc">
+            <title id="curve-title">ARGUS technology hype and maturity lifecycle</title>
+            <desc id="curve-desc">A qualitative curve with five stages. The current position is shown as an illuminated marker.</desc>
+            <defs>
+              <linearGradient id="curve-gradient" x1="0" x2="1"><stop offset="0" stop-color="#78f0cb"/><stop offset=".45" stop-color="#d9ee82"/><stop offset="1" stop-color="#ffbb70"/></linearGradient>
+            </defs>
+            <g class="grid"><path d="M50 365H1080"/><path d="M50 275H1080"/><path d="M50 185H1080"/><path d="M50 95H1080"/></g>
+            <path class="area" d="M55 354 C150 336 212 204 310 90 C360 34 448 50 492 105 C545 171 580 275 658 300 C760 331 832 237 915 230 C990 223 1030 220 1080 218 L1080 365 L55 365Z"/>
+            <path class="curve-shadow" d="M55 354 C150 336 212 204 310 90 C360 34 448 50 492 105 C545 171 580 275 658 300 C760 331 832 237 915 230 C990 223 1030 220 1080 218"/>
+            <path id="lifecycle-curve" class="curve" d="M55 354 C150 336 212 204 310 90 C360 34 448 50 492 105 C545 171 580 275 658 300 C760 331 832 237 915 230 C990 223 1030 220 1080 218"/>
+            <g class="stage-labels"><text x="92" y="404">INNOVATION</text><text x="352" y="404">INFLATED EXPECTATIONS</text><text x="603" y="404">DISILLUSIONMENT</text><text x="816" y="404">ENLIGHTENMENT</text><text x="1012" y="404">PRODUCTIVITY</text></g>
+            <g id="chart-marker" transform="translate(850 240)"><circle class="marker-halo" r="15"/><circle class="marker-ring" r="11"/><circle class="marker" r="5"/><line x1="0" x2="0" y1="-20" y2="-68"/><rect x="-108" y="-110" rx="7" width="216" height="30"/><text id="marker-text" x="0" y="-89">CURRENT ESTIMATE</text></g>
+          </svg>
+          <div class="axis-label x-axis">MARKET LEARNING &amp; OPERATIONAL MATURITY →</div>
+          <p class="chart-note">The curve is qualitative. The marker represents a phase distribution and confidence band, not a precise scientific coordinate.</p>
+        </div>
+      </section>
+
+      <section class="wrap dimensions-section">
+        <div class="section-heading"><div><p class="eyebrow">SIGNAL MIX</p><h2>Six dimensions, one readable estimate</h2></div><button id="history-toggle" class="text-button">Explore historical movement <span>↗</span></button></div>
+        <div id="dimensions" class="dimensions"></div>
+        <div id="history" class="history-panel panel hidden"><div class="history-header"><span class="eyebrow" id="history-range-label">HISTORY</span><span id="history-week">—</span></div><input id="history-slider" type="range" min="0" max="0" value="0" aria-label="Historical week"/><div id="history-stats" class="history-stats"></div></div>
+      </section>
+
+      <section id="evidence" class="wrap evidence-section">
+        <div class="section-heading"><div><p class="eyebrow">EVIDENCE LEDGER</p><h2>What moved the read</h2></div><p class="subtle" id="evidence-count">Loading evidence…</p></div>
+        <div class="filter-row" aria-label="Evidence filters"><button class="filter active" data-filter="all">All signals</button><button class="filter" data-filter="adoption">Adoption</button><button class="filter" data-filter="maturity">Maturity</button><button class="filter" data-filter="expectations">Expectations</button><button class="filter" data-filter="disappointment">Contradictions</button></div>
+        <div id="evidence-list" class="evidence-list"></div>
+      </section>
+
+      <section id="method" class="method-section"><div class="wrap method-grid"><div><p class="eyebrow">THE ARGUS METHOD</p><h2>Signals over vibes.</h2><p>ARGUS retains attributable public metadata, removes exact duplicate signals, and weights source classes by what they can credibly demonstrate. The current collector uses transparent keyword classification—not an LLM—to assign evidence dimensions.</p></div><div class="method-list"><div><b>01</b><span><strong>Collect</strong> news metadata, developer discussion, and repository activity</span></div><div><b>02</b><span><strong>Classify</strong> attributable signals and disclose collection gaps</span></div><div><b>03</b><span><strong>Infer</strong> an explainable, sequential lifecycle phase</span></div></div></div></section>
+    </main>
+    <footer class="wrap footer"><span>ARGUS / PUBLIC-METADATA TRACKER</span><span>Not affiliated with Gartner. <a href="/faq">FAQ</a> · <a href="/api/v1/methodology" target="_blank" rel="noreferrer">Methodology JSON ↗</a></span></footer>
+    <script type="module" src="/app.js?v=0.6"></script>
+  </body>
+</html>

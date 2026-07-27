@@ -1,0 +1,13 @@
+{
+  "id": "model-context-protocol",
+  "display_name": "Model Context Protocol (MCP)",
+  "kind": "protocol",
+  "definition": "An open protocol for connecting AI applications to external systems, tools, and context providers through a standardized client-server interface.",
+  "tracking_start": "2024-11-01",
+  "snapshot_cadence": "weekly",
+  "status": "active",
+  "github_repos": ["modelcontextprotocol/modelcontextprotocol", "modelcontextprotocol/python-sdk", "modelcontextprotocol/typescript-sdk", "modelcontextprotocol/registry"],
+  "hn_query": "\"Model Context Protocol\"",
+  "news_query": "\"Model Context Protocol\" AI",
+  "relevance_terms": ["model context protocol", "mcp server", "mcp protocol"]
+}

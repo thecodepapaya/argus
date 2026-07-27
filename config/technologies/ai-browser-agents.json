@@ -1,0 +1,14 @@
+{
+  "id": "ai-browser-agents",
+  "display_name": "AI browser agents",
+  "kind": "technology_category",
+  "definition": "AI systems that navigate websites, interpret interfaces, and complete multi-step browser tasks such as research, testing, and form workflows.",
+  "tracking_start": "2025-01-06",
+  "snapshot_cadence": "weekly",
+  "status": "active",
+  "github_repos": ["browser-use/browser-use", "microsoft/OmniParser", "browserbase/stagehand"],
+  "hn_query": "\"browser agent\"",
+  "news_query": "\"AI browser agent\" OR \"browser-use\"",
+  "relevance_terms": ["browser agent", "browser-use", "computer use", "web agent", "browser automation"],
+  "signal_calibration": {"attention_floor": 55, "expectations_floor": 70, "adoption_cap": 42}
+}

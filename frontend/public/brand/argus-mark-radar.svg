@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="ARGUS radar mark option">
+  <rect x="1.5" y="1.5" width="29" height="29" rx="5" fill="#18221d" stroke="#365345"/>
+  <path d="M16 5.5v4M16 22.5v4M5.5 16h4M22.5 16h4" stroke="#52685c" stroke-width="1"/>
+  <circle cx="16" cy="16" r="7" fill="none" stroke="#79efc8" stroke-width="1.4"/>
+  <path d="M16 16 22.5 9.5" stroke="#d9ef83" stroke-width="1.6" stroke-linecap="round"/>
+  <circle cx="16" cy="16" r="1.8" fill="#d9ef83"/>
+</svg>
