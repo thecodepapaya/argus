@@ -108,6 +108,13 @@ class OperationsStore:
           discovery_run_id TEXT NOT NULL,
           FOREIGN KEY (discovery_run_id) REFERENCES discovery_runs(id)
         );
+        CREATE TABLE IF NOT EXISTS visitor_technology_suggestions (
+          id TEXT PRIMARY KEY, name TEXT NOT NULL, rationale TEXT NOT NULL,
+          normalized_name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'new',
+          created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS visitor_technology_suggestions_status_idx
+          ON visitor_technology_suggestions(status, created_at DESC);
         """)
         self._ensure_column("technologies", "analysis_cadence", "TEXT NOT NULL DEFAULT 'weekly'")
         self._ensure_column("technologies", "cadence_changed_at", "TEXT")
@@ -319,7 +326,8 @@ class OperationsStore:
             "snapshots": self.connection.execute("SELECT COUNT(*) FROM snapshots").fetchone()[0],
             "source_failures": self.connection.execute("SELECT COUNT(*) FROM sources WHERE last_error IS NOT NULL").fetchone()[0],
             "weekly_technologies": self.connection.execute("SELECT COUNT(*) FROM technologies WHERE status = 'active' AND analysis_cadence = 'weekly'").fetchone()[0],
-            "open_suggestions": self.connection.execute("SELECT COUNT(*) FROM technology_suggestions WHERE status = 'new'").fetchone()[0],
+            "open_suggestions": self.connection.execute("SELECT COUNT(*) FROM technology_suggestions WHERE status = 'new'").fetchone()[0]
+                + self.connection.execute("SELECT COUNT(*) FROM visitor_technology_suggestions WHERE status = 'new'").fetchone()[0],
         }
 
     @serialized_write
@@ -474,6 +482,70 @@ class OperationsStore:
             payload = json.loads(item.pop("payload_json"))
             output.append({**item, **payload})
         return output
+
+    @staticmethod
+    def _normalized_suggestion_name(name: str) -> str:
+        return " ".join(name.casefold().split())
+
+    @serialized_write
+    def create_visitor_suggestion(self, name: object, rationale: object = "") -> tuple[dict[str, Any], bool]:
+        if not isinstance(name, str):
+            raise ValueError("Technology name is required")
+        clean_name = " ".join(name.split())
+        if len(clean_name) < 2 or len(clean_name) > 120:
+            raise ValueError("Technology name must be between 2 and 120 characters")
+        if not isinstance(rationale, str):
+            raise ValueError("Suggestion context must be text")
+        clean_rationale = " ".join(rationale.split())
+        if len(clean_rationale) > 500:
+            raise ValueError("Suggestion context must be 500 characters or fewer")
+        normalized_name = self._normalized_suggestion_name(clean_name)
+        tracked_names = {
+            self._normalized_suggestion_name(item["display_name"])
+            for item in self.technologies(include_drafts=True)
+        }
+        if normalized_name in tracked_names:
+            raise ValueError("ARGUS already tracks this technology or has it in preparation")
+        existing = self.connection.execute(
+            "SELECT * FROM visitor_technology_suggestions WHERE normalized_name = ? AND status = 'new' ORDER BY created_at DESC LIMIT 1",
+            (normalized_name,),
+        ).fetchone()
+        if existing:
+            return dict(existing), False
+        suggestion_id = str(uuid.uuid4())
+        now = _now()
+        self.connection.execute(
+            "INSERT INTO visitor_technology_suggestions VALUES (?, ?, ?, ?, 'new', ?, ?)",
+            (suggestion_id, clean_name, clean_rationale, normalized_name, now, now),
+        )
+        self.audit("public-visitor", "suggest", "visitor_technology_suggestion", suggestion_id, {"name": clean_name})
+        row = self.connection.execute("SELECT * FROM visitor_technology_suggestions WHERE id = ?", (suggestion_id,)).fetchone()
+        return dict(row), True  # type: ignore[arg-type]
+
+    def visitor_suggestions(self, status: str | None = None) -> list[dict[str, Any]]:
+        values: list[Any] = []
+        query = "SELECT * FROM visitor_technology_suggestions"
+        if status:
+            if status not in {"new", "reviewed", "dismissed"}:
+                raise ValueError("Invalid visitor suggestion status")
+            query += " WHERE status = ?"
+            values.append(status)
+        return [dict(row) for row in self.connection.execute(query + " ORDER BY created_at DESC", values)]
+
+    @serialized_write
+    def review_visitor_suggestion(self, suggestion_id: str, status: str, actor: str) -> dict[str, Any]:
+        if status not in {"reviewed", "dismissed"}:
+            raise ValueError("Visitor suggestion status must be reviewed or dismissed")
+        row = self.connection.execute("SELECT * FROM visitor_technology_suggestions WHERE id = ?", (suggestion_id,)).fetchone()
+        if not row:
+            raise ValueError("Visitor suggestion not found")
+        self.connection.execute(
+            "UPDATE visitor_technology_suggestions SET status = ?, updated_at = ? WHERE id = ?",
+            (status, _now(), suggestion_id),
+        )
+        self.audit(actor, status, "visitor_technology_suggestion", suggestion_id, {"name": row["name"]})
+        updated = self.connection.execute("SELECT * FROM visitor_technology_suggestions WHERE id = ?", (suggestion_id,)).fetchone()
+        return dict(updated)  # type: ignore[arg-type]
 
     @serialized_write
     def review_suggestion(self, suggestion_id: str, status: str, actor: str) -> dict[str, Any]:

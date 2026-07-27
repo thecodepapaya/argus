@@ -163,6 +163,33 @@
     $('#discovery-error').innerHTML = latest?.error
       ? `<details class="operation-error" open><summary>Latest discovery run failed</summary><p>${esc(latest.model)} · ${esc(friendlyTimestamp(latest.started_at))} · Run ${esc(latest.id)}</p><code>${esc(latest.error)}</code></details>`
       : '';
+    const visitorSuggestions = data.visitor_suggestions.filter(item => item.status === 'new');
+    const visitorSuggestionById = new Map(visitorSuggestions.map(item => [item.id, item]));
+    $('#visitor-suggestion-count').textContent = `${visitorSuggestions.length} awaiting review`;
+    $('#visitor-suggestion-list').innerHTML = visitorSuggestions.map(item => `<article class="suggestion-card visitor-suggestion-card panel"><div class="review-meta"><span class="tag">Visitor suggestion</span><span>${esc(friendlyTimestamp(item.created_at))}</span></div><h3>${esc(item.name)}</h3><p>${item.rationale ? esc(item.rationale) : 'No additional context was supplied.'}</p><div class="card-actions"><button class="card-action" data-visitor-suggestion="${esc(item.id)}" data-decision="review">Prepare profile</button><button class="card-action quiet" data-visitor-suggestion="${esc(item.id)}" data-decision="dismiss">Dismiss</button></div></article>`).join('') || '<div class="empty-state panel"><b>No visitor suggestions awaiting review</b><p>New technology names submitted from the public homepage will appear here.</p></div>';
+
+    document.querySelectorAll('[data-visitor-suggestion]').forEach(button => button.addEventListener('click', async () => {
+      button.disabled = true;
+      const item = visitorSuggestionById.get(button.dataset.visitorSuggestion);
+      try {
+        await api(`visitor-suggestions/${encodeURIComponent(button.dataset.visitorSuggestion)}/${button.dataset.decision}`, { method: 'POST' });
+        if (button.dataset.decision === 'review' && item) {
+          const form = $('#technology-form');
+          form.elements.display_name.value = item.name;
+          if (item.rationale) form.elements.definition.value = item.rationale;
+          $('.new-tech').open = true;
+          window.location.hash = '#technologies';
+          form.elements.display_name.focus();
+          message('Visitor suggestion copied into the editable technology profile.', 'success');
+        } else {
+          message('Visitor suggestion dismissed.', 'success');
+        }
+        await loadDiscovery();
+      } catch (error) {
+        message(describeError(error, 'Visitor suggestion was not updated'), 'error');
+        button.disabled = false;
+      }
+    }));
     const suggestions = data.items.filter(item => item.status === 'new');
     $('#discovery-list').innerHTML = suggestions.map(item => {
       const links = item.evidence_urls.map((url, index) => `<a href="${escapeHtml(safeHttpUrl(url))}" target="_blank" rel="noreferrer">Source ${index + 1} ↗</a>`).join('');

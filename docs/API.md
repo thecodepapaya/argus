@@ -24,6 +24,7 @@ ARGUS serves JSON under `/api`. All responses include `X-Request-ID`; errors use
 | GET | `/api/v1/technologies/{id}/coverage` | Current coverage and source warnings |
 | GET | `/api/v1/methodology` | Versioned definitions, phases, limitations, and tooltip glossary |
 | GET | `/api/v1/sources/disclosure` | Source classes and weighting interpretation |
+| POST | `/api/v1/suggestions` | Submit a technology name and optional rationale for administrator review; rate-limited and deduplicated |
 
 ## Admin endpoints
 
@@ -44,6 +45,8 @@ ARGUS serves JSON under `/api`. All responses include `X-Request-ID`; errors use
 | GET | `/api/v1/admin/sources` | Source health |
 | GET | `/api/v1/admin/audit?limit=` | Audit events, capped at 500 |
 | GET | `/api/v1/admin/discovery[?status=]` | Discovery runs and suggestions |
+| POST | `/api/v1/admin/visitor-suggestions/{id}/review` | Mark a visitor suggestion reviewed after copying it into the profile workflow |
+| POST | `/api/v1/admin/visitor-suggestions/{id}/dismiss` | Retain and dismiss a visitor suggestion |
 | POST | `/api/v1/admin/suggestions/{id}/accept` | Convert a suggestion to a draft technology |
 | POST | `/api/v1/admin/suggestions/{id}/dismiss` | Retain and dismiss a suggestion |
 

@@ -67,6 +67,21 @@ class ArgusApplication:
         configured_token = admin_token if admin_token is not None else os.environ.get("ARGUS_ADMIN_TOKEN")
         self.admin_token = configured_token or "argus-local"
         self._refresh_lock = threading.Lock()
+        self._suggestion_lock = threading.Lock()
+        self._suggestion_attempts: dict[str, list[float]] = {}
+
+    def check_public_suggestion_rate(self, client_id: str) -> None:
+        """Allow five submissions per client per hour without persisting its address."""
+        now = time.monotonic()
+        cutoff = now - 3600
+        with self._suggestion_lock:
+            attempts = [value for value in self._suggestion_attempts.get(client_id, []) if value >= cutoff]
+            if len(attempts) >= 5:
+                raise ApiError(HTTPStatus.TOO_MANY_REQUESTS, "suggestion_rate_limited", "Too many suggestions were submitted. Please try again later")
+            attempts.append(now)
+            if client_id not in self._suggestion_attempts and len(self._suggestion_attempts) >= 5000:
+                self._suggestion_attempts.pop(next(iter(self._suggestion_attempts)))
+            self._suggestion_attempts[client_id] = attempts
 
     def readiness(self) -> dict[str, Any]:
         return {"status": "ok", "service": "argus", "time": _now(), **self.store.health()}
@@ -145,7 +160,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store" if "/admin" in self.path else "public, max-age=30")
+        self.send_header("Cache-Control", "no-store" if self.command != "GET" or "/admin" in self.path else "public, max-age=30")
         self.end_headers()
         self.wfile.write(body)
 
@@ -300,7 +315,7 @@ class Handler(SimpleHTTPRequestHandler):
             status = query.get("status", [None])[0]
             try: suggestions = store.suggestions(status)
             except ValueError as error: raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_status", str(error)) from error
-            self._json({"items": suggestions, "runs": store.discovery_runs(), "configured": llm_configured()}); return
+            self._json({"items": suggestions, "visitor_suggestions": store.visitor_suggestions(), "runs": store.discovery_runs(), "configured": llm_configured()}); return
         if route == "audit":
             try: limit = int(query.get("limit", ["100"])[0])
             except ValueError as error: raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_limit", "Audit limit must be an integer") from error
@@ -342,6 +357,17 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         try:
             path = urlparse(self.path).path.rstrip("/")
+            if path == "/api/v1/suggestions":
+                payload = self._body()
+                if payload.get("website"):
+                    self._json({"status": "received"}, HTTPStatus.CREATED); return
+                client_id = (self.headers.get("CF-Connecting-IP") or self.client_address[0])[:100]
+                self.application.check_public_suggestion_rate(client_id)
+                try:
+                    _, created = self.application.store.create_visitor_suggestion(payload.get("name"), payload.get("rationale", ""))
+                except ValueError as error:
+                    raise ApiError(HTTPStatus.BAD_REQUEST, "validation_error", str(error)) from error
+                self._json({"status": "received", "already_suggested": not created}, HTTPStatus.CREATED if created else HTTPStatus.OK); return
             if not path.startswith("/api/v1/admin/"):
                 raise ApiError(HTTPStatus.NOT_FOUND, "route_not_found", "Route not found")
             self._require_admin()
@@ -392,6 +418,9 @@ class Handler(SimpleHTTPRequestHandler):
                     store.review_suggestion(parts[1], "accepted", actor)
                     self._json({"suggestion_status": "accepted", "technology": technology}, HTTPStatus.CREATED); return
                 self._json(store.review_suggestion(parts[1], "dismissed", actor)); return
+            if len(parts) == 3 and parts[0] == "visitor-suggestions" and parts[2] in {"review", "dismiss"}:
+                status = "reviewed" if parts[2] == "review" else "dismissed"
+                self._json(store.review_visitor_suggestion(parts[1], status, actor)); return
         except ValueError as error:
             raise ApiError(HTTPStatus.BAD_REQUEST, "validation_error", str(error)) from error
         raise ApiError(HTTPStatus.NOT_FOUND, "route_not_found", "Route not found")

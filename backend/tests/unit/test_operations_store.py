@@ -82,3 +82,15 @@ class OperationsStoreTests(unittest.TestCase):
         self.assertEqual(suggestion["slug"], "test-protocol")
         reviewed = self.store.review_suggestion(suggestion["id"], "dismissed", "tester")
         self.assertEqual(reviewed["status"], "dismissed")
+
+    def test_visitor_suggestions_are_deduplicated_and_reviewable(self):
+        suggestion, created = self.store.create_visitor_suggestion("Agent-to-Agent Protocol", "A growing interoperability standard.")
+        self.assertTrue(created)
+        self.assertEqual(suggestion["status"], "new")
+        duplicate, created = self.store.create_visitor_suggestion("  agent-to-agent   protocol  ")
+        self.assertFalse(created)
+        self.assertEqual(duplicate["id"], suggestion["id"])
+        reviewed = self.store.review_visitor_suggestion(suggestion["id"], "reviewed", "tester")
+        self.assertEqual(reviewed["status"], "reviewed")
+        with self.assertRaisesRegex(ValueError, "already tracks"):
+            self.store.create_visitor_suggestion("Model Context Protocol (MCP)")

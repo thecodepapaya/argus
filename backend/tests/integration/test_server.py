@@ -120,6 +120,35 @@ class ServerIntegrationTests(unittest.TestCase):
         with urlopen(self.base_url + "/admin", timeout=5) as response:
             self.assertNotIn("/_argus/analytics.js", response.read().decode("utf-8"))
 
+    def test_public_can_suggest_a_technology_for_admin_review(self):
+        status, headers, payload = self.request(
+            "/api/v1/suggestions",
+            method="POST",
+            payload={"name": "Agent-to-Agent Protocol", "rationale": "A growing interoperability standard."},
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(headers["Cache-Control"], "no-store")
+        self.assertEqual(payload["status"], "received")
+        self.assertFalse(payload["already_suggested"])
+        status, _, payload = self.request(
+            "/api/v1/suggestions",
+            method="POST",
+            payload={"name": " agent-to-agent  protocol "},
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["already_suggested"])
+        status, _, discovery = self.request("/api/v1/admin/discovery", token="test-token")
+        self.assertEqual(status, 200)
+        suggestion = next(item for item in discovery["visitor_suggestions"] if item["name"] == "Agent-to-Agent Protocol")
+        status, _, reviewed = self.request(
+            f"/api/v1/admin/visitor-suggestions/{suggestion['id']}/review",
+            method="POST",
+            token="test-token",
+            payload={},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(reviewed["status"], "reviewed")
+
     def test_public_routes_remain_stable_under_concurrency(self):
         paths = [
             "/api/v1/overview",

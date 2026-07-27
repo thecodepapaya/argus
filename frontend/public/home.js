@@ -53,6 +53,43 @@ function renderFailure(error) {
   $('#retry-home').addEventListener('click', boot, { once: true });
 }
 
+function setupSuggestionForm() {
+  const toggle = $('#suggest-technology-toggle');
+  const form = $('#technology-suggestion-form');
+  const result = $('#technology-suggestion-result');
+  toggle.addEventListener('click', () => {
+    const opening = form.classList.contains('hidden');
+    form.classList.toggle('hidden', !opening);
+    toggle.setAttribute('aria-expanded', String(opening));
+    if (opening) form.elements.name.focus();
+  });
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const submit = form.querySelector('button[type="submit"]');
+    const data = new FormData(form);
+    submit.disabled = true;
+    result.className = '';
+    result.textContent = 'Sending…';
+    try {
+      const response = await requestJson('/api/v1/suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: data.get('name'), rationale: data.get('rationale'), website: data.get('website') }),
+      });
+      result.className = 'success';
+      result.textContent = response.already_suggested
+        ? 'That technology is already in the review queue. Thanks for reinforcing it.'
+        : 'Thanks—your suggestion is now in the ARGUS review queue.';
+      form.reset();
+    } catch (error) {
+      result.className = 'error';
+      result.textContent = error.message || 'ARGUS could not save the suggestion.';
+    } finally {
+      submit.disabled = false;
+    }
+  });
+}
+
 async function boot() {
   $('#health').innerHTML = '<span>Loading portfolio summary…</span>';
   try {
@@ -74,4 +111,5 @@ async function boot() {
   }
 }
 
+setupSuggestionForm();
 boot();
