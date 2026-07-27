@@ -63,7 +63,7 @@ With DNS and ports 80/443 in place, Caddy provisions and renews TLS certificates
 
 ## GitHub Actions environment
 
-The workflow in `.github/workflows/ci.yml` publishes `ghcr.io/thecodepapaya/argus:<commit-sha>` after the test matrix completes. It deploys successful pushes to `main` and can also be started manually. The deployment job runs only when the repository variable `DEPLOY_ENABLED` is `true`.
+The workflow in `.github/workflows/ci.yml` publishes a multi-architecture (`amd64` and `arm64`) image at `ghcr.io/thecodepapaya/argus:<commit-sha>` after the test matrix completes. It deploys successful pushes to `main` and can also be started manually. The deployment job runs only when the repository variable `DEPLOY_ENABLED` is `true`.
 
 Environment secrets:
 
