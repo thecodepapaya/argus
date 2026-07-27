@@ -396,6 +396,16 @@
   padding-top: 4px;
 }
 
+#technologies.admin-view.active {
+  display: flex;
+  flex-direction: column;
+}
+
+#technologies .section-heading { order: 0; }
+#technologies .new-tech { order: 1; margin-top: 6px; }
+#technologies .technology-filter-toolbar { order: 2; margin-top: 22px; }
+#technologies #technology-admin-list { order: 3; }
+
 .admin-table {
   overflow: auto;
 }
