@@ -96,7 +96,11 @@ jobs:
           set -eu
           : "${DEPLOY_PATH:?VM_DEPLOY_PATH must be configured as a production environment variable}"
           cd "$DEPLOY_PATH"
-          git fetch --depth=1 origin main
+          if [ -f .git/shallow ]; then
+            git fetch --unshallow origin main
+          else
+            git fetch origin main
+          fi
           test "$(git rev-parse origin/main)" = "$DEPLOY_SHA"
           git checkout main
           git merge --ff-only "$DEPLOY_SHA"

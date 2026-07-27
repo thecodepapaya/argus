@@ -84,7 +84,7 @@ Environment variables:
 
 Set `DEPLOY_ENABLED=true` as a repository variable after VM setup is complete. It is repository-scoped because GitHub evaluates the deployment job condition before loading its `production` environment.
 
-The workflow pins host-key verification and deploys the same source revision as the immutable image tag. A public GHCR package pulls anonymously. Private packages use the optional VM-only registry credentials.
+The workflow pins host-key verification, restores full Git history if the VM checkout is shallow, and deploys the same source revision as the immutable image tag. A public GHCR package pulls anonymously. Private packages use the optional VM-only registry credentials.
 
 ## Health and operations
 
