@@ -1,4 +1,4 @@
-import { escapeHtml, plainText, requestJson, safeHttpUrl, tooltipTerm } from '/client.js?v=0.6';
+import { escapeHtml, plainText, requestJson, safeHttpUrl, tooltipTerm } from '/client.js?v=a4fd3680';
 
 const state = { technologyId: null, snapshots: [], current: null, evidence: [], filter: 'all', coverage: null, methodology: null };
 const $ = (selector) => document.querySelector(selector);

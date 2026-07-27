@@ -1,5 +1,5 @@
 (async () => {
-  const { escapeHtml, plainText, requestJson, safeHttpUrl } = await import('/client.js?v=0.9');
+  const { escapeHtml, plainText, requestJson, safeHttpUrl } = await import('/client.js?v=a4fd3680');
   const $ = (selector) => document.querySelector(selector);
   const esc = (value) => escapeHtml(plainText(value));
   const LONG_OPERATION_TIMEOUT_MS = 90000;

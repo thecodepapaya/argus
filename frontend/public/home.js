@@ -1,4 +1,4 @@
-import { escapeHtml as h, requestJson, tooltipTerm } from '/client.js?v=0.6';
+import { escapeHtml as h, requestJson, tooltipTerm } from '/client.js?v=a4fd3680';
 
 const $ = (selector) => document.querySelector(selector);
 const date = (value) => value ? new Date(value).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';

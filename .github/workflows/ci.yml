@@ -19,6 +19,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Compile application code
         run: python -m compileall -q backend/src scripts
+      - name: Verify cache-safe static asset fingerprints
+        run: python scripts/check_asset_fingerprints.py
       - name: Check browser JavaScript syntax
         run: node --check frontend/public/client.js && node --check frontend/public/home.js && node --check frontend/public/app.js && node --check frontend/public/admin.js
       - name: Run unit tests
