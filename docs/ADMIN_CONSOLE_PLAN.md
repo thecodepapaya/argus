@@ -36,5 +36,6 @@ role-based access, multi-user sessions, CSRF-protected cookies, run cancellation
 stage-level reprocessing, snapshot retraction, semantic evidence editing, or cost
 budgets. These are deployment/product features, not implied by the current UI.
 
-Before internet exposure, place `/api/v1/admin/*` behind managed identity and rate
-limiting, replace the shared header token, configure TLS, and centralize audit logs.
+Internet exposure requires managed identity and rate limiting for
+`/api/v1/admin/*`, TLS, centralized audit logging, and replacement of the shared
+header token.

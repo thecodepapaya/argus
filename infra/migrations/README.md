@@ -5,5 +5,5 @@ ARGUS uses additive, idempotent SQLite migrations in
 new nullable/defaulted columns while preserving existing data. Migration behavior
 is covered by store and integration tests.
 
-Before a future non-additive schema change, introduce numbered migration files in
-this directory, a schema-version table, backup instructions, and rollback tests.
+Non-additive schema changes require numbered migration files, a schema-version
+table, backup instructions, and rollback tests.

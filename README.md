@@ -1,54 +1,50 @@
 # ARGUS
 
-ARGUS is a **Technology Hype & Maturity Tracker**. It estimates the gap between what the internet promises about a technology and what public adoption and maturity evidence demonstrates.
+ARGUS is an evidence-led technology hype and maturity tracker. It compares public attention with observable adoption and maturity signals, then places a technology on an explainable five-stage lifecycle.
 
-The showcase tracks **AI agent harnesses**, **Model Context Protocol (MCP)**, and **AI browser agents**. It combines current news/community coverage with public repository activity, produces weekly phase estimates, and explains both supporting and contradictory evidence on a web-based curve.
+The included showcase covers AI agent harnesses, Model Context Protocol (MCP), and AI browser agents. It runs on a dependency-free Python service, SQLite, public GitHub/Hacker News/Google News metadata, and a static web interface.
 
-The application remains dependency-free at runtime: a Python API, explainable phase inference, 52 weeks of public-metadata-derived history, SQLite operations storage, an interactive dashboard, and an optional OpenRouter web-search discovery scheduler.
+## What is included
 
-## Start here
+- Public overview, technology detail pages, methodology, and FAQ
+- Admin console for source health, evidence review, analysis runs, and technology lifecycle management
+- 52-week historical baseline from public metadata
+- OpenRouter-assisted candidate discovery and editable draft-profile preparation
+- Docker Compose, GitHub Container Registry, and VM deployment support
 
-- [Implementation plan](docs/PLAN.md)
-- [Runtime technology profiles](config/technologies/)
-- [Data-directory policy](data/README.md)
-- [Operations runbook](docs/runbooks/OPERATIONS.md)
-- [Implemented methodology](docs/METHODOLOGY.md)
-- [HTTP API](docs/API.md)
-- [Weekly technology discovery](docs/DISCOVERY.md)
-- [Production VM deployment](docs/DEPLOYMENT.md)
-
-## Run locally
+## Local run
 
 ```bash
 python3 scripts/refresh_data.py
 python3 scripts/run_local.py --port 8000
 ```
 
-Open `http://127.0.0.1:8000`. The public overview is the homepage, technology detail routes are available at `/technologies/<technology-id>`, the model FAQ is at `/faq`, and the operations console is at `/admin`.
+The public interface is available at `http://127.0.0.1:8000`; `/admin` is the operations console and `/faq` explains the model.
 
-The console stores technology configuration, run history, source health, evidence-review decisions, and audit events in `data/argus.sqlite3` (ignored by Git). Its default local access token is `argus-local`; set `ARGUS_ADMIN_TOKEN` before a shared or deployed run. The console can create a draft technology with repositories, queries, and relevance terms without a code change, validate it, collect/backfill evidence, and activate it for the public overview.
-
-A committed public-data cache lets the showcase start offline; `refresh_data.py` replaces it using the latest GitHub, Hacker News, and Google News RSS metadata. The **Run due technologies** console action collects weekly profiles plus quarterly profiles whose 12-week interval has elapsed.
-
-`OPENROUTER_API_KEY` enables weekly emerging-technology discovery and the optional draft-profile assistant in the admin console. `GITHUB_TOKEN` is optional but recommended for reliable scheduled collection; use a fine-grained read-only token. Hacker News and Google News RSS use public endpoints. Discovery writes suggestions to the admin review queue and never changes public tracking automatically. See [the discovery guide](docs/DISCOVERY.md).
-
-For local source-health inspection and retry commands, see [scripts/README.md](scripts/README.md).
-
-## Run with Docker Compose
+## Docker Compose
 
 ```bash
 cp .env.example .env
-# Set ARGUS_ADMIN_TOKEN in .env to a strong local secret.
 docker compose up --build
 ```
 
-Open `http://127.0.0.1:8000`. Docker Compose persists the operational SQLite database in the named `argus_data` volume, while the curated real-data fixture remains baked into the image. Stop with `docker compose down`; include `-v` only when you intentionally want to remove all operational history.
+`ARGUS_ADMIN_TOKEN` is required for shared environments. Compose stores operational state in the named `argus_data` volume. `docker compose down -v` removes that state.
 
-## Data and limitations
+## Configuration
 
-ARGUS retains public metadata, feed titles, short permitted summaries, and source links—not article bodies. The historical signal currently uses 52 weeks of public GitHub commit activity and dated Hacker News discussion; current coverage also includes Google News RSS results. Repository activity is capped as an adoption proxy and is not presented as production proof. It is an explainable research estimate, not investment advice or an official Gartner classification.
+| Variable | Purpose |
+| --- | --- |
+| `ARGUS_ADMIN_TOKEN` | Admin API token. Defaults to `argus-local` only outside Compose. |
+| `GITHUB_TOKEN` | Optional fine-grained read-only GitHub token for more reliable collection. |
+| `OPENROUTER_API_KEY` | Optional key for weekly discovery and admin draft-profile preparation. |
+| `ARGUS_LLM_MODEL` | OpenRouter model for the draft-profile assistant. |
+| `ARGUS_DISCOVERY_MODEL` | OpenRouter model for weekly discovery. |
 
-The collection cache was generated on 2026-07-27. Refresh before a live demonstration where recency matters.
+## Data boundaries
+
+ARGUS retains public metadata, feed titles, short permitted summaries, and source links—not article bodies. Historical signals use GitHub activity and dated Hacker News discussion; current coverage also includes Google News RSS. Repository activity is a limited adoption proxy, not production evidence. The result is a research estimate, not investment advice or an official Gartner classification.
+
+The committed showcase cache was generated on 2026-07-27. `scripts/refresh_data.py` refreshes it from the configured public sources.
 
 ## Validation
 
@@ -56,28 +52,28 @@ The collection cache was generated on 2026-07-27. Refresh before a live demonstr
 PYTHONPATH=backend/src python3 -m unittest discover -s backend/tests -v
 ```
 
-## GitHub publishing checklist
+## Documentation
 
-- Refresh the data cache immediately before publishing a demo.
-- Set a strong `ARGUS_ADMIN_TOKEN`, put `/api/v1/admin/*` behind real identity-aware authentication, and rate-limit refresh endpoints before exposing them publicly.
-- Add a project license that matches your intended distribution model.
-- Add secrets only through GitHub or deployment settings. LLM assistance requires `OPENROUTER_API_KEY`; scheduled GitHub collection should use a read-only `GITHUB_TOKEN`.
-
-For a production VM, use the [deployment runbook](docs/DEPLOYMENT.md). It builds an immutable image in GitHub Container Registry, keeps database state on the VM, and deploys only after the GitHub `production` environment is approved.
+- [Methodology](docs/METHODOLOGY.md)
+- [HTTP API](docs/API.md)
+- [Operations runbook](docs/runbooks/OPERATIONS.md)
+- [Technology discovery](docs/DISCOVERY.md)
+- [Production deployment](docs/DEPLOYMENT.md)
+- [Runtime technology profiles](config/technologies/)
+- [Source and maintenance scripts](scripts/README.md)
+- [Architecture plan](docs/PLAN.md)
 
 ## Repository layout
 
 ```text
 ARGUS/
-├── backend/                 Python API, workers, inference, and tests
-├── config/                  Versioned technology, source, and model policy
-├── data/                    Local development data and committed fixtures
-├── docs/                    Plan, architectural decisions, and runbooks
-├── frontend/                Web experience and visualization
-├── infra/                   Containers, database migrations, deployment files
-└── scripts/                 Developer and operational scripts
+├── backend/     API, collection, inference, storage, and tests
+├── config/      versioned technology profiles and source policy
+├── data/        local state policy and committed fixtures
+├── docs/        methodology, operations, API, and deployment reference
+├── frontend/    public and admin web interfaces
+├── infra/       container and reverse-proxy assets
+└── scripts/     local collection and maintenance commands
 ```
 
-## Product-language note
-
-ARGUS should not present itself as an official Gartner product or reproduce a proprietary Gartner graphic. Public-facing copy should use terms such as “technology hype and maturity,” while explaining that its five qualitative stages are inspired by the widely understood technology-adoption lifecycle.
+ARGUS is independent of Gartner. Public copy uses “technology hype and maturity” terminology and does not reproduce proprietary Gartner graphics.

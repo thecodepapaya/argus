@@ -1,33 +1,37 @@
-# Weekly emerging-technology discovery
+# Emerging technology discovery
 
-ARGUS has a separate `discovery` Compose service. Once per week it asks an OpenRouter model to search the web for distinct emerging AI technologies that could support evidence-led lifecycle tracking.
+The optional `discovery` service runs weekly and proposes emerging AI technologies for review. It uses OpenRouter web search for research only; it does not score lifecycle phases or publish technologies.
 
-## Credentials
+## Configuration
 
-Create an OpenRouter API key and set `OPENROUTER_API_KEY` in `.env` for Docker Compose, or export it in the shell when running Python scripts directly. The key is sent only as a bearer credential to OpenRouter; it is never stored in SQLite or returned by the API. Restrict the key's budget and model access, and configure spend alerts appropriate to the project.
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `OPENROUTER_API_KEY` | — | Enables discovery and the admin draft-profile assistant. |
+| `ARGUS_DISCOVERY_MODEL` | `openai/gpt-4.1-mini` | Model used for weekly discovery. |
+| `ARGUS_LLM_MODEL` | `openai/gpt-4.1-mini` | Model used for draft-profile preparation. |
+| `ARGUS_DISCOVERY_INTERVAL_SECONDS` | `604800` | Scheduler interval. |
+| `ARGUS_PLATEAU_WEEKS` | `12` | Consecutive plateau weeks before quarterly analysis. |
 
-The default model is `openai/gpt-4.1-mini`, configurable through `ARGUS_DISCOVERY_MODEL` (and `ARGUS_LLM_MODEL` for the admin assistant). Choose a model that supports structured output and the OpenRouter web-search server tool. OpenRouter web search can incur charges per request in addition to model usage.
+The selected model must support structured output and the OpenRouter web-search server tool. The API key is sent only to OpenRouter as a bearer credential; it is neither stored in SQLite nor exposed by the API.
 
-## Guardrails
+## Boundaries
 
-- Discovery is isolated from phase inference; OpenRouter never decides lifecycle placement.
-- Existing names and definitions are supplied to prevent duplicates.
-- Output must satisfy a JSON schema and local semantic validation.
-- Every candidate needs a distinct slug, a verified repository, relevance terms, and at least two direct evidence URLs.
-- A suggestion cannot appear publicly. An administrator must accept it, collect data, validate it, and activate it.
-- Dismissed suggestions remain dismissed if rediscovered, while their evidence and score can be refreshed.
+- Discovery is separate from evidence scoring and lifecycle inference.
+- Candidates require a distinct slug, valid repository references, relevance terms, and at least two source URLs.
+- Suggestions remain private until an administrator creates a draft, collects data, validates it, and activates it.
+- Draft-profile preparation fills editable fields from an admin-provided name and description. Repository and query suggestions require review before draft creation.
 
-## Operations
+## Commands
 
 ```bash
-# Verify scope and credential detection without an API call
+# Inspect scheduler scope and key detection without an API call.
 python3 scripts/discover_technologies.py --dry-run
 
-# Run discovery once
-python3 scripts/discover_technologies.py
+# Run one discovery cycle.
+OPENROUTER_API_KEY=... python3 scripts/discover_technologies.py
 
-# Run the web and weekly scheduler services
+# Start the application and scheduler with Compose.
 docker compose up --build
 ```
 
-The scheduler records completed and failed runs in SQLite and emits newline-delimited JSON logs. Its interval defaults to 604800 seconds. It reads the latest persisted run before calling OpenRouter, so a container restart does not trigger another billable discovery before the interval is due. The admin console shows whether credentials are configured, the latest run, source links, and actions to create a draft or dismiss a candidate.
+Runs and failures are recorded in SQLite and emitted as JSON logs. The scheduler reads the latest persisted run on startup, preventing an extra discovery request after a container restart.

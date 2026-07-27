@@ -9,12 +9,12 @@ The application state is intentionally mounted at `/app/data/state`, not the ful
 bootstrap while persisting the operational SQLite database in the `argus_data`
 named volume.
 
-Copy `.env.example` to `.env` and set `ARGUS_ADMIN_TOKEN` before starting:
+With `.env` populated from `.env.example`, local Compose startup is:
 
 ```bash
 docker compose up --build
 ```
 
-Set `OPENROUTER_API_KEY` to enable discovery and draft-profile assistance. Without it, the web tracker remains fully
-functional and the discovery service records a clear disabled/failure state rather
-than inventing suggestions. Both services share the `argus_data` SQLite volume.
+`ARGUS_ADMIN_TOKEN` is required in `.env`. `OPENROUTER_API_KEY` enables discovery
+and draft-profile assistance; without it, the tracker remains available and
+discovery records a disabled state. Both services share the `argus_data` SQLite volume.
