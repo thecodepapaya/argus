@@ -63,14 +63,14 @@ With DNS and ports 80/443 in place, Caddy provisions and renews TLS certificates
 
 ## GitHub Actions environment
 
-The workflow in `.github/workflows/ci.yml` publishes `ghcr.io/thecodepapaya/argus:<commit-sha>` after the test matrix completes. The deployment job runs only when the GitHub `production` environment has `DEPLOY_ENABLED=true`.
+The workflow in `.github/workflows/ci.yml` publishes `ghcr.io/thecodepapaya/argus:<commit-sha>` after the test matrix completes. It deploys successful pushes to `main` and can also be started manually. The deployment job runs only when the repository variable `DEPLOY_ENABLED` is `true`.
 
 Environment secrets:
 
 | Secret | Value |
 | --- | --- |
 | `VM_HOST` | VM hostname or IP address |
-| `VM_USER` | `argusdeploy` |
+| `VM_USER` | `ubuntu` on the current VM, or a dedicated deployment account |
 | `VM_SSH_PRIVATE_KEY` | Deployment-only private key |
 | `VM_KNOWN_HOSTS` | Verified, hashed host-key entry |
 
@@ -81,7 +81,8 @@ Environment variables:
 | `VM_DEPLOY_PATH` | `/opt/argus` |
 | `VM_PORT` | `22` or the configured SSH port |
 | `ARGUS_PUBLIC_URL` | Public HTTPS URL |
-| `DEPLOY_ENABLED` | `true` after VM setup is complete |
+
+Set `DEPLOY_ENABLED=true` as a repository variable after VM setup is complete. It is repository-scoped because GitHub evaluates the deployment job condition before loading its `production` environment.
 
 The workflow pins host-key verification and deploys the same source revision as the immutable image tag. A public GHCR package pulls anonymously. Private packages use the optional VM-only registry credentials.
 
