@@ -34,6 +34,20 @@ function card({ technology, current, change, source_errors: sourceErrors }, meth
   return `<a class="tech-card portfolio-card panel" href="${path}" aria-label="${h(detailsLabel)}"><div class="card-top"><span class="eyebrow">${h(technology.kind.replace('_', ' '))}</span><span class="signal ${h(current.confidence_band)}">${h(current.confidence_band)} ${tooltipTerm('confidence', 'confidence', methodology, false)}</span></div><h3>${h(technology.display_name)}<span aria-hidden="true">↗</span></h3><p class="tech-description">${h(technology.definition)}</p><div class="phase-line"><small>Current phase</small><b>${tooltipTerm(current.phase_label, 'phase', methodology, false)}</b></div><div class="tech-metrics"><span>${tooltipTerm('Adoption', 'adoption', methodology, false)} <b>${Math.round(current.features.adoption)}</b></span><span>${tooltipTerm('Maturity', 'maturity', methodology, false)} <b>${Math.round(current.features.maturity)}</b></span><span>${tooltipTerm('Hype gap', 'hype_gap', methodology, false)} <b>${current.hype_gap > 0 ? '+' : ''}${current.hype_gap}</b></span></div><div class="direction-list" aria-label="Recent movement">${movement(change.week, '7 days')} ${movement(change.month, '30 days')}</div>${sourceErrors.length ? `<small class="warning">${sourceErrors.length} source warning${sourceErrors.length > 1 ? 's' : ''}</small>` : ''}</a>`;
 }
 
+function renderTechnologyCards(items, methodology, query = '') {
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleItems = normalizedQuery
+    ? items.filter(({ technology }) => [technology.display_name, technology.kind, technology.definition].join(' ').toLowerCase().includes(normalizedQuery))
+    : items;
+  $('#technology-cards').innerHTML = visibleItems.map(item => card(item, methodology)).join('');
+  $('#technology-search-result').textContent = normalizedQuery
+    ? `${visibleItems.length} ${visibleItems.length === 1 ? 'technology' : 'technologies'} matching “${query.trim()}”.`
+    : '';
+  if (!visibleItems.length) {
+    $('#technology-cards').innerHTML = '<p class="search-empty">No tracked technology matches that search.</p>';
+  }
+}
+
 function renderFailure(error) {
   $('#health').innerHTML = `<div class="load-error"><b>ARGUS is temporarily unavailable</b><span>${h(error.message)}</span><button id="retry-home" type="button">Retry</button></div>`;
   $('#retry-home').addEventListener('click', boot, { once: true });
@@ -45,7 +59,8 @@ async function boot() {
     const [overview, methodology] = await Promise.all([requestJson('/api/v1/overview'), requestJson('/api/v1/methodology')]);
     $('#health').innerHTML = portfolioSummary(overview.items, methodology);
     $('#last-updated').textContent = `Updated ${date(overview.last_updated)}`;
-    $('#technology-cards').innerHTML = overview.items.map(item => card(item, methodology)).join('');
+    renderTechnologyCards(overview.items, methodology);
+    $('#technology-search').addEventListener('input', (event) => renderTechnologyCards(overview.items, methodology, event.target.value));
   } catch (error) {
     renderFailure(error);
     return;
