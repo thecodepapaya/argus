@@ -107,6 +107,11 @@
             <div><p class="eyebrow">TRACKED TECHNOLOGIES</p><h2>Analysis configuration</h2></div>
             <p class="subtle">Collect immediately, adjust cadence, or move drafts through validation and publication.</p>
           </div>
+          <div class="technology-filter-toolbar panel">
+            <label>Search technologies<input id="technology-admin-search" type="search" placeholder="Name, type, or description" autocomplete="off" /></label>
+            <label>Status<select id="technology-admin-status"><option value="">All statuses</option><option value="active">Active</option><option value="draft">Draft</option><option value="validated">Validated</option><option value="paused">Paused</option><option value="archived">Archived</option></select></label>
+            <p id="technology-admin-count" aria-live="polite"></p>
+          </div>
           <div id="technology-admin-list" class="technology-admin-grid"></div>
           <details class="new-tech panel">
             <summary><span><small>NEW PROFILE</small>Add a technology without changing code</span><i aria-hidden="true">+</i></summary>
@@ -153,6 +158,6 @@
     </main>
 
     <footer class="wrap footer"><span>ARGUS / PRIVATE OPERATIONS CONSOLE</span><span><a href="/">Public overview</a> · <a href="/faq">FAQ</a></span></footer>
-    <script src="/admin.js?v=0.13"></script>
+    <script src="/admin.js?v=0.14"></script>
   </body>
 </html>

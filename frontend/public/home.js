@@ -41,8 +41,8 @@ function renderTechnologyCards(items, methodology, query = '') {
     : items;
   $('#technology-cards').innerHTML = visibleItems.map(item => card(item, methodology)).join('');
   $('#technology-search-result').textContent = normalizedQuery
-    ? `${visibleItems.length} ${visibleItems.length === 1 ? 'technology' : 'technologies'} matching “${query.trim()}”.`
-    : '';
+    ? `${visibleItems.length} of ${items.length} ${visibleItems.length === 1 ? 'technology' : 'technologies'} shown`
+    : `${items.length} technologies tracked`;
   if (!visibleItems.length) {
     $('#technology-cards').innerHTML = '<p class="search-empty">No tracked technology matches that search.</p>';
   }

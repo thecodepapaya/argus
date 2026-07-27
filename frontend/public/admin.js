@@ -3,7 +3,7 @@
   const $ = (selector) => document.querySelector(selector);
   const esc = (value) => escapeHtml(plainText(value));
   const LONG_OPERATION_TIMEOUT_MS = 90000;
-  const state = { token: '', evidence: [], evidenceVisible: 12, technologyNames: new Map() };
+  const state = { token: '', evidence: [], evidenceVisible: 12, technologies: [], technologyNames: new Map() };
 
   const friendlyDate = (value) => {
     if (!value) return '—';
@@ -117,13 +117,15 @@
     return actions.join('');
   }
 
-  async function loadTechnologies() {
-    const data = await api('technologies');
-    const selectedTechnology = $('#evidence-tech-filter').value;
-    $('#evidence-tech-filter').innerHTML = `<option value="">All technologies</option>${data.items.map(technology => `<option value="${esc(technology.id)}" ${selectedTechnology === technology.id ? 'selected' : ''}>${esc(technology.display_name)}</option>`).join('')}`;
-    data.items.forEach(technology => state.technologyNames.set(technology.id, technology.display_name));
-
-    $('#technology-admin-list').innerHTML = data.items.map(technology => `<article class="technology-admin-card panel"><div class="technology-card-meta"><span class="tech-badge ${esc(technology.status)}">${esc(technology.status)}</span><span class="tech-badge">${esc(technology.analysis_cadence)}</span></div><h3>${esc(technology.display_name)}</h3><p>${esc(technology.definition)}</p><div class="technology-card-facts"><span>Repositories<b>${(technology.github_repos || []).length}</b></span><span>Profile type<b>${esc(technology.kind)}</b></span></div><div class="card-actions">${technologyActions(technology)}</div></article>`).join('');
+  function renderTechnologyAdmin() {
+    const query = $('#technology-admin-search').value.trim().toLowerCase();
+    const status = $('#technology-admin-status').value;
+    const technologies = state.technologies.filter(technology => {
+      const searchable = [technology.display_name, technology.kind, technology.definition].join(' ').toLowerCase();
+      return (!query || searchable.includes(query)) && (!status || technology.status === status);
+    });
+    $('#technology-admin-count').textContent = `${technologies.length} of ${state.technologies.length} shown`;
+    $('#technology-admin-list').innerHTML = technologies.map(technology => `<article class="technology-admin-card panel"><div class="technology-card-meta"><span class="tech-badge ${esc(technology.status)}">${esc(technology.status)}</span><span class="tech-badge">${esc(technology.analysis_cadence)}</span></div><h3>${esc(technology.display_name)}</h3><p>${esc(technology.definition)}</p><div class="technology-card-facts"><span>Repositories<b>${(technology.github_repos || []).length}</b></span><span>Profile type<b>${esc(technology.kind)}</b></span></div><div class="card-actions">${technologyActions(technology)}</div></article>`).join('') || '<div class="empty-state panel"><b>No technologies found</b><p>Try a different search term or status.</p></div>';
 
     document.querySelectorAll('[data-tech]').forEach(button => button.addEventListener('click', async () => {
       if (button.dataset.action === 'pause' && !window.confirm(`Unpublish ${button.dataset.techName}? Its data will be retained and it can be republished later.`)) return;
@@ -141,6 +143,15 @@
         button.disabled = false;
       }
     }));
+  }
+
+  async function loadTechnologies() {
+    const data = await api('technologies');
+    const selectedTechnology = $('#evidence-tech-filter').value;
+    $('#evidence-tech-filter').innerHTML = `<option value="">All technologies</option>${data.items.map(technology => `<option value="${esc(technology.id)}" ${selectedTechnology === technology.id ? 'selected' : ''}>${esc(technology.display_name)}</option>`).join('')}`;
+    data.items.forEach(technology => state.technologyNames.set(technology.id, technology.display_name));
+    state.technologies = data.items;
+    renderTechnologyAdmin();
   }
 
   async function loadDiscovery() {
@@ -226,6 +237,8 @@
   $('#token').addEventListener('keydown', event => { if (event.key === 'Enter') login(); });
   $('#evidence-filter').addEventListener('change', () => loadEvidence().catch(error => message(describeError(error, 'Evidence filter failed'), 'error')));
   $('#evidence-tech-filter').addEventListener('change', () => loadEvidence().catch(error => message(describeError(error, 'Technology filter failed'), 'error')));
+  $('#technology-admin-search').addEventListener('input', renderTechnologyAdmin);
+  $('#technology-admin-status').addEventListener('change', renderTechnologyAdmin);
   $('#evidence-more').addEventListener('click', () => { state.evidenceVisible += 12; renderEvidence(); });
   $('#refresh-all').addEventListener('click', async () => {
     const button = $('#refresh-all');
