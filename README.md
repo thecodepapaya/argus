@@ -1,8 +1,20 @@
-# ARGUS
+<p align="center">
+  <img src="frontend/public/argus-mark.svg" width="72" alt="ARGUS logo" />
+</p>
+
+<h1 align="center">ARGUS</h1>
+
+<p align="center">
+  Evidence-led tracking for emerging AI technologies.
+  <br />
+  <a href="https://argus.thecodepapaya.dev">View the live tracker</a> · <a href="https://argus.thecodepapaya.dev/faq">Read the FAQ</a>
+</p>
 
 ARGUS is an evidence-led technology hype and maturity tracker. It compares public attention with observable adoption and maturity signals, then places a technology on an explainable five-stage lifecycle.
 
-The included showcase covers AI agent harnesses, Model Context Protocol (MCP), and AI browser agents. It runs on a dependency-free Python service, SQLite, public GitHub/Hacker News/Google News metadata, and a static web interface.
+![ARGUS homepage](docs/images/argus-home.png)
+
+The included showcase follows a growing portfolio of AI technologies, including agent harnesses, browser agents, LangGraph, and Model Context Protocol (MCP). It runs on a dependency-free Python service, SQLite, public GitHub/Hacker News/Google News metadata, and a static web interface.
 
 ## What is included
 
