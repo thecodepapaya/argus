@@ -30,25 +30,30 @@ export ARGUS_IMAGE
 # access when available, otherwise use the host's existing passwordless sudo
 # policy instead of granting the deployment account permanent docker-group
 # membership (which is effectively root access).
-docker_command="docker"
+use_sudo=false
 if ! docker info >/dev/null 2>&1; then
   if sudo -n docker info >/dev/null 2>&1; then
-    docker_command="sudo -n docker"
+    use_sudo=true
   else
     echo "Docker is unavailable to this account (directly or through passwordless sudo)." >&2
     exit 1
   fi
 fi
 
-# Intentional word splitting lets docker_command include the sudo arguments.
-# shellcheck disable=SC2086
-$docker_command compose --env-file .env -f "$compose_file" config --quiet
-# shellcheck disable=SC2086
-$docker_command compose --env-file .env -f "$compose_file" pull
-# shellcheck disable=SC2086
-$docker_command compose --env-file .env -f "$compose_file" up --detach --remove-orphans
-# shellcheck disable=SC2086
-http_endpoint="$($docker_command compose --env-file .env -f "$compose_file" port argus 8000 | sed -n '1p')"
+run_docker() {
+  if [ "$use_sudo" = true ]; then
+    # sudo intentionally sanitizes the caller environment. Pass only the
+    # immutable image reference required for Compose interpolation.
+    sudo -n env ARGUS_IMAGE="$ARGUS_IMAGE" docker "$@"
+  else
+    docker "$@"
+  fi
+}
+
+run_docker compose --env-file .env -f "$compose_file" config --quiet
+run_docker compose --env-file .env -f "$compose_file" pull
+run_docker compose --env-file .env -f "$compose_file" up --detach --remove-orphans
+http_endpoint="$(run_docker compose --env-file .env -f "$compose_file" port argus 8000 | sed -n '1p')"
 
 if [ -z "$http_endpoint" ]; then
   echo "Could not determine the published ARGUS application port." >&2
@@ -66,6 +71,5 @@ while [ "$attempt" -le 30 ]; do
 done
 
 echo "ARGUS did not become ready; recent container logs follow:" >&2
-# shellcheck disable=SC2086
-$docker_command compose --env-file .env -f "$compose_file" logs --tail=100 >&2
+run_docker compose --env-file .env -f "$compose_file" logs --tail=100 >&2
 exit 1
