@@ -181,18 +181,28 @@
 
   function setupSidebarNavigation() {
     const links = [...document.querySelectorAll('.admin-sidebar-nav a')];
-    const sections = links
+    const views = links
       .map(link => document.querySelector(link.getAttribute('href')))
       .filter(Boolean);
-    if (!('IntersectionObserver' in window) || !sections.length) return;
-    const observer = new IntersectionObserver(entries => {
-      const visible = entries
-        .filter(entry => entry.isIntersecting)
-        .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
-      if (!visible) return;
-      links.forEach(link => link.classList.toggle('active', link.getAttribute('href') === `#${visible.target.id}`));
-    }, { rootMargin: '-18% 0px -68% 0px', threshold: [0.1, 0.4] });
-    sections.forEach(section => observer.observe(section));
+    const showView = (requestedView) => {
+      const selectedView = views.find(view => view.id === requestedView) || document.querySelector('#overview');
+      views.forEach(view => {
+        const active = view === selectedView;
+        view.classList.toggle('active', active);
+        view.hidden = !active;
+      });
+      links.forEach(link => link.classList.toggle('active', link.getAttribute('href') === `#${selectedView.id}`));
+      document.title = `${selectedView.querySelector('h1, h2')?.textContent.trim() || 'Operations'} — ARGUS`;
+    };
+    const showHashView = () => showView(window.location.hash.slice(1));
+    links.forEach(link => link.addEventListener('click', event => {
+      event.preventDefault();
+      const target = link.getAttribute('href');
+      if (window.location.hash === target) showHashView();
+      else window.location.hash = target;
+    }));
+    window.addEventListener('hashchange', showHashView);
+    showHashView();
   }
 
   async function login() {

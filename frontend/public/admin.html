@@ -55,7 +55,8 @@
           </aside>
 
           <div class="admin-main">
-        <header id="overview" class="admin-heading">
+        <section id="overview" class="admin-view admin-overview-view active">
+        <header class="admin-heading">
           <div>
             <p class="eyebrow">OPERATIONS CONSOLE</p>
             <h1>Evidence in.<br /><em>Decisions out.</em></h1>
@@ -65,8 +66,9 @@
         </header>
 
         <section id="admin-health" class="admin-summary" aria-label="Operational summary"></section>
+        </section>
 
-        <section id="runs" class="admin-section first-section">
+        <section id="runs" class="admin-section admin-view">
           <div class="section-heading">
             <div><p class="eyebrow">RECENT RUNS</p><h2>Collection and publication</h2></div>
             <p class="subtle">Latest pipeline outcomes across all tracked technologies.</p>
@@ -77,7 +79,7 @@
           </table></div>
         </section>
 
-        <section id="evidence" class="admin-section">
+        <section id="evidence" class="admin-section admin-view">
           <div class="section-heading">
             <div><p class="eyebrow">EVIDENCE REVIEW</p><h2>Review queue</h2></div>
             <p class="subtle">Approve useful signals or exclude evidence that should not influence future analysis.</p>
@@ -91,7 +93,7 @@
           <button id="evidence-more" class="secondary-action hidden" type="button">Show 12 more</button>
         </section>
 
-        <section id="discovery" class="admin-section">
+        <section id="discovery" class="admin-section admin-view">
           <div class="section-heading">
             <div><p class="eyebrow">EMERGING TECHNOLOGY DISCOVERY</p><h2>Candidate queue</h2></div>
             <p id="discovery-status" class="subtle"></p>
@@ -100,7 +102,7 @@
           <div id="discovery-list" class="discovery-grid"></div>
         </section>
 
-        <section id="technologies" class="admin-section">
+        <section id="technologies" class="admin-section admin-view">
           <div class="section-heading">
             <div><p class="eyebrow">TRACKED TECHNOLOGIES</p><h2>Analysis configuration</h2></div>
             <p class="subtle">Collect immediately, adjust cadence, or move drafts through validation and publication.</p>
@@ -135,7 +137,7 @@
           </details>
         </section>
 
-        <section id="sources" class="admin-section">
+        <section id="sources" class="admin-section admin-view">
           <div class="section-heading">
             <div><p class="eyebrow">SOURCE HEALTH</p><h2>Collection dependencies</h2></div>
             <p class="subtle">The most recent status for each configured public source.</p>
@@ -151,6 +153,6 @@
     </main>
 
     <footer class="wrap footer"><span>ARGUS / PRIVATE OPERATIONS CONSOLE</span><span><a href="/">Public overview</a> · <a href="/faq">FAQ</a></span></footer>
-    <script src="/admin.js?v=0.12"></script>
+    <script src="/admin.js?v=0.13"></script>
   </body>
 </html>
