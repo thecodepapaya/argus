@@ -29,7 +29,7 @@ def main() -> None:
         moved = store.evaluate_analysis_cadence("weekly-discovery", args.plateau_weeks)
         technologies = store.technologies(include_drafts=True)
         weekly = store.weekly_technologies()
-        model = os.environ.get("ARGUS_DISCOVERY_MODEL", DEFAULT_MODEL)
+        model = os.environ.get("ARGUS_LLM_MODEL", DEFAULT_MODEL)
         key_configured = bool(os.environ.get("OPENROUTER_API_KEY"))
         print(f"Discovery model: {model}")
         print(f"OpenRouter API key configured: {'yes' if key_configured else 'no'}")

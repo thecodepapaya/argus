@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 
 
 OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "openai/gpt-4.1-mini"
+DEFAULT_MODEL = "openai/gpt-5.6-luna"
 
 
 class LLMError(RuntimeError):

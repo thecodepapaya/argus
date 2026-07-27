@@ -25,7 +25,7 @@ def log(event: str, **fields) -> None:
 def main() -> None:
     interval = max(3600, int(os.environ.get("ARGUS_DISCOVERY_INTERVAL_SECONDS", "604800")))
     plateau_weeks = max(8, int(os.environ.get("ARGUS_PLATEAU_WEEKS", "12")))
-    model = os.environ.get("ARGUS_DISCOVERY_MODEL", DEFAULT_MODEL)
+    model = os.environ.get("ARGUS_LLM_MODEL", DEFAULT_MODEL)
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     signal.signal(signal.SIGINT, lambda *_: stop.set())

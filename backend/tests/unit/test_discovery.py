@@ -68,6 +68,38 @@ class DiscoveryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "OPENROUTER_API_KEY"):
                 enrich_profile("Test protocol", "A protocol used to verify optional LLM setup.")
 
+    def test_profile_enrichment_rejects_gibberish_before_calling_the_llm(self):
+        with patch("argus.enrichment.complete_json") as complete:
+            with self.assertRaisesRegex(ValueError, "placeholder text"):
+                enrich_profile("zzzzzz", "zzzzzz zzzzzz zzzzzz zzzzzz")
+        complete.assert_not_called()
+
+    def test_profile_enrichment_surfaces_luna_rejection_reason(self):
+        rejected = {
+            "decision": "reject",
+            "reason": "This is a broad trend, not a distinct technology category.",
+            "profile": {"id": "", "display_name": "", "kind": "", "definition": "", "github_repos": [], "hn_query": "", "news_query": "", "relevance_terms": []},
+        }
+        with patch("argus.enrichment.complete_json", return_value=(rejected, {"model": "openai/gpt-5.6-luna"})):
+            with self.assertRaisesRegex(ValueError, "broad trend"):
+                enrich_profile("General AI", "A broad collection of artificial intelligence software and applications.")
+
+    def test_profile_enrichment_returns_only_luna_approved_profiles(self):
+        approved = {
+            "decision": "ready",
+            "reason": "Distinct and publicly researchable.",
+            "profile": {
+                "id": "test-protocol", "display_name": "Test Protocol", "kind": "protocol",
+                "definition": "A distinct protocol used to verify optional LLM setup.",
+                "github_repos": ["example/test-protocol"], "hn_query": "Test Protocol",
+                "news_query": "Test Protocol AI", "relevance_terms": ["test protocol"],
+            },
+        }
+        with patch("argus.enrichment.complete_json", return_value=(approved, {"model": "openai/gpt-5.6-luna"})):
+            result = enrich_profile("Test Protocol", "A distinct protocol used to connect AI tools to external systems.")
+        self.assertEqual(result["profile"]["id"], "test-protocol")
+        self.assertEqual(result["model"], "openai/gpt-5.6-luna")
+
     def test_openrouter_request_uses_bearer_auth_structured_output_and_web_tool(self):
         raw_response = {"model": "test-model", "choices": [{"message": {"content": '{"value":"ok"}', "annotations": []}}]}
         raw = MagicMock()
@@ -80,6 +112,7 @@ class DiscoveryTests(unittest.TestCase):
         request = request_call.call_args.args[0]
         self.assertEqual(request.get_header("Authorization"), "Bearer test-key")
         body = json.loads(request.data)
+        self.assertEqual(body["model"], "openai/gpt-5.6-luna")
         self.assertEqual(body["response_format"]["type"], "json_schema")
         self.assertEqual(body["tools"], [{"type": "openrouter:web_search"}])
         # GPT-5 endpoints do not universally accept temperature. Keeping it out

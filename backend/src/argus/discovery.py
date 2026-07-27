@@ -119,7 +119,7 @@ def discover(technologies: list[dict[str, Any]], api_key: str | None = None, mod
     try:
         output, metadata = complete_json(
             prompt=_prompt(technologies), schema_name="technology_candidates", schema=CANDIDATE_SCHEMA,
-            api_key=api_key, model=model or os.environ.get("ARGUS_DISCOVERY_MODEL", DEFAULT_MODEL), use_web_search=True,
+            api_key=api_key, model=model or os.environ.get("ARGUS_LLM_MODEL", DEFAULT_MODEL), use_web_search=True,
         )
     except LLMError as error:
         raise DiscoveryError(str(error)) from error

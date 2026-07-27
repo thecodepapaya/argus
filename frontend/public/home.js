@@ -68,7 +68,7 @@ function setupSuggestionForm() {
     const submit = form.querySelector('button[type="submit"]');
     const data = new FormData(form);
     submit.disabled = true;
-    result.className = '';
+    result.className = 'pending';
     result.textContent = 'Sending…';
     try {
       const response = await requestJson('/api/v1/suggestions', {

@@ -7,8 +7,7 @@ The optional `discovery` service runs weekly and proposes AI technologies for re
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `OPENROUTER_API_KEY` | — | Enables discovery and the admin draft-profile assistant. |
-| `ARGUS_DISCOVERY_MODEL` | `openai/gpt-4.1-mini` | Model used for weekly discovery. |
-| `ARGUS_LLM_MODEL` | `openai/gpt-4.1-mini` | Model used for draft-profile preparation. |
+| `ARGUS_LLM_MODEL` | `openai/gpt-5.6-luna` | Single model used for weekly discovery and draft-profile preparation. |
 | `ARGUS_DISCOVERY_INTERVAL_SECONDS` | `604800` | Scheduler interval. |
 | `ARGUS_PLATEAU_WEEKS` | `12` | Consecutive plateau weeks before quarterly analysis. |
 
@@ -20,7 +19,7 @@ The selected model must support structured output and the OpenRouter web-search 
 - Candidates require a distinct slug, valid repository references, relevance terms, and at least two source URLs. Existing technologies and recognizable aliases are suppressed before suggestions are saved.
 - Candidate priority reflects public signal quality and the value of recurring tracking; it is not a measure of novelty.
 - Suggestions remain private until an administrator creates a draft, collects data, validates it, and activates it.
-- Draft-profile preparation fills editable fields from an admin-provided name and description. Repository and query suggestions require review before draft creation.
+- Draft-profile preparation first rejects gibberish, placeholder text, and ambiguous or untrackable submissions with a specific reason. For eligible submissions, it fills editable fields from an admin-provided name and description. Repository and query suggestions require review before draft creation.
 
 ## Commands
 

@@ -50,8 +50,7 @@ docker compose up --build
 | `GITHUB_TOKEN` | Optional fine-grained read-only GitHub token for more reliable collection. |
 | `OPENROUTER_API_KEY` | Optional key for weekly discovery and admin draft-profile preparation. |
 | `ARGUS_CLOUDFLARE_ANALYTICS_TOKEN` | Optional Cloudflare Web Analytics site token; public pages only. |
-| `ARGUS_LLM_MODEL` | OpenRouter model for the draft-profile assistant. |
-| `ARGUS_DISCOVERY_MODEL` | OpenRouter model for weekly discovery. |
+| `ARGUS_LLM_MODEL` | `openai/gpt-5.6-luna` by default; the single OpenRouter model for both discovery and draft-profile preparation. |
 
 ## Data boundaries
 
