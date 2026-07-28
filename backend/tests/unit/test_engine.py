@@ -18,6 +18,13 @@ class InferenceTests(unittest.TestCase):
         self.assertIn(estimate["phase"], {"slope_of_enlightenment", "plateau_of_productivity"})
         self.assertIn(estimate["confidence_band"], {"moderate", "high"})
 
+    def test_unsettled_momentum_does_not_influence_phase_scores(self):
+        features = {"attention": 50, "expectations": 50, "disappointment": 20, "adoption": 50, "maturity": 50, "momentum": 95, "coverage": 80, "momentum_available": False}
+        positive = infer(features)
+        features["momentum"] = -95
+        negative = infer(features)
+        self.assertEqual(positive["probabilities"], negative["probabilities"])
+
 
 if __name__ == "__main__":
     unittest.main()

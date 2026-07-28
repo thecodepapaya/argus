@@ -6,7 +6,9 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from argus.live import TECHNOLOGIES, _get_json, load_live_cache, validate_live_data
+from datetime import UTC, datetime, timedelta
+
+from argus.live import TECHNOLOGIES, _get_json, _history, load_live_cache, validate_live_data
 
 
 class LiveCacheTests(unittest.TestCase):
@@ -36,3 +38,14 @@ class LiveCacheTests(unittest.TestCase):
             _get_json("https://hn.algolia.com/api/v1/search")
             hn_request = mocked.call_args.args[0]
             self.assertIsNone(hn_request.get_header("Authorization"))
+
+    def test_history_uses_only_prior_information_for_normalization(self):
+        now = datetime(2026, 7, 27, tzinfo=UTC)
+        start = now - timedelta(weeks=51)
+        activity = [
+            {"week": int(start.timestamp()), "total": 10},
+            {"week": int(now.timestamp()), "total": 1000},
+        ]
+        snapshots = _history([activity], [], now)
+        self.assertGreater(snapshots[0]["features"]["adoption"], 25)
+        self.assertFalse(snapshots[-1]["features"]["momentum_available"])

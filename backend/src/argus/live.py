@@ -182,31 +182,34 @@ def _history(repo_activities: list[list[dict[str, Any]]], stories: list[dict[str
     weeks = [_week_start(current - timedelta(weeks=offset)) for offset in range(51, -1, -1)]
     commit_values = [commits_by_week.get(week, 0) for week in weeks]
     discussion_values = [len(story_by_week.get(week, [])) for week in weeks]
-    max_commits = max(commit_values) or 1
-    max_discussions = max(discussion_values) or 1
     snapshots: list[dict[str, Any]] = []
     previous_phase = None
     for index, week in enumerate(weeks):
         discussions = story_by_week.get(week, [])
         commits = commits_by_week.get(week, 0)
-        attention = _clamp(18 + 75 * discussion_values[index] / max_discussions)
+        # Normalize only against information available at this point in time. A
+        # later spike must not rewrite earlier lifecycle estimates downward.
+        max_commits_to_date = max(commit_values[:index + 1]) or 1
+        max_discussions_to_date = max(discussion_values[:index + 1]) or 1
+        attention = _clamp(18 + 75 * discussion_values[index] / max_discussions_to_date)
         expectations = _clamp(15 + 55 * sum(_keyword_dimension((story.get("title") or ""))[0] == "expectations" for story in discussions) / max(1, len(discussions)) + attention * 0.22)
         disappointment = _clamp(8 + 65 * sum(_keyword_dimension((story.get("title") or ""))[0] == "disappointment" for story in discussions) / max(1, len(discussions)))
         # Public repository activity is a weak adoption proxy. Keep it bounded so
         # code activity cannot be mistaken for independently verified production use.
-        adoption = _clamp(8 + 24 * commits / max_commits)
-        maturity = _clamp(24 + 70 * commits / max_commits)
+        adoption = _clamp(8 + 24 * commits / max_commits_to_date)
+        maturity = _clamp(24 + 70 * commits / max_commits_to_date)
         prior = commit_values[max(0, index - 4):index] or [0]
-        momentum = _clamp(50 + (commits - statistics.mean(prior)) * 1.8) - 50
+        settling = index == len(weeks) - 1
+        momentum = 0 if settling else _clamp(50 + (commits - statistics.mean(prior)) * 1.8) - 50
         coverage = _clamp(42 + (30 if commits else 0) + min(28, len(discussions) * 5))
-        features = {"attention": attention, "expectations": expectations, "disappointment": disappointment, "adoption": adoption, "maturity": maturity, "momentum": momentum, "coverage": coverage}
+        features = {"attention": attention, "expectations": expectations, "disappointment": disappointment, "adoption": adoption, "maturity": maturity, "momentum": momentum, "momentum_available": not settling, "coverage": coverage}
         estimate = infer(features, previous_phase)
         previous_phase = estimate["phase"]
-        snapshots.append({"week": week, "features": features, **estimate, "model_version": METHODOLOGY_VERSION, "coverage_warning": None if coverage >= 65 else "Partial historical coverage: public commit activity and dated developer discussion only."})
+        snapshots.append({"week": week, "features": features, **estimate, "model_version": METHODOLOGY_VERSION, "period_status": "settling" if settling else "closed", "coverage_warning": None if coverage >= 65 else "Partial historical coverage: public commit activity and dated developer discussion only."})
     return snapshots
 
 
-def _apply_current_repository_signal(snapshots: list[dict[str, Any]], repositories: list[dict[str, Any]], current: datetime, evidence_count: int, calibration: dict[str, float] | None = None) -> None:
+def _apply_current_repository_signal(snapshots: list[dict[str, Any]], repositories: list[dict[str, Any]], current: datetime, calibration: dict[str, float] | None = None) -> None:
     """Use actual repository recency when GitHub's weekly aggregates lag the current week."""
     active_repositories = 0
     for repository in repositories:
@@ -225,9 +228,6 @@ def _apply_current_repository_signal(snapshots: list[dict[str, Any]], repositori
     features = snapshot["features"]
     features["adoption"] = _clamp(max(features["adoption"], 10 + active_repositories * 7))
     features["maturity"] = _clamp(max(features["maturity"], 25 + active_repositories * 14))
-    # Coverage measures actual currently collected source breadth, not the number
-    # of headlines. It stays below high confidence when few source classes respond.
-    features["coverage"] = _clamp(max(features["coverage"], 30 + len(repositories) * 8 + min(12, evidence_count / 3)))
     # Some categories have abundant open-source tooling but sparse independently
     # verified deployment evidence. Per-category calibration is versioned with the
     # technology profile so repository popularity is not mislabeled as adoption.
@@ -240,6 +240,12 @@ def _apply_current_repository_signal(snapshots: list[dict[str, Any]], repositori
     snapshot.update(infer(features, previous_phase))
 
 
+def _source_coverage(source_health: dict[str, bool]) -> float:
+    """Return collection completeness from adapter outcomes, never activity volume."""
+    applicable = list(source_health.values())
+    return _clamp(100 * sum(applicable) / len(applicable)) if applicable else 0
+
+
 def collect_technology(technology: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
     """Collect a configuration-driven technology profile using existing adapters."""
     now = now or datetime.now(UTC)
@@ -248,29 +254,39 @@ def collect_technology(technology: dict[str, Any], now: datetime | None = None) 
     errors: list[str] = []
     repo_details: list[dict[str, Any]] = []
     activities: list[list[dict[str, Any]]] = []
+    github_ok = True
     for repo_name in technology["github_repos"]:
         try:
             details, activity = _github_repo(repo_name)
             repo_details.append(details); activities.append(activity)
         except Exception as error:
+            github_ok = False
             errors.append(f"GitHub {repo_name}: {error}")
     after = now - timedelta(weeks=53)
     try:
         stories = _hn_stories(technology["hn_query"], after)
         stories = [story for story in stories if _is_relevant(story.get("title") or story.get("story_title") or "", tuple(technology["relevance_terms"]))]
     except Exception as error:
-        stories = []; errors.append(f"Hacker News: {error}")
+        stories = []; errors.append(f"Hacker News: {error}"); hn_ok = False
+    else:
+        hn_ok = True
     try:
         news = _news_items(technology["news_query"])
         news = [item for item in news if _is_relevant(f"{item['title']} {item.get('excerpt', '')}", tuple(technology["relevance_terms"]))]
     except Exception as error:
-        news = []; errors.append(f"Google News RSS: {error}")
+        news = []; errors.append(f"Google News RSS: {error}"); news_ok = False
+    else:
+        news_ok = True
     evidence = [*(_repo_evidence(repo, tech_id, current_week) for repo in repo_details)]
     evidence.extend(item for item in (_hn_evidence(story, tech_id, current_week) for story in stories[:12]) if item)
     evidence.extend(_news_evidence(item, tech_id, current_week) for item in news[:12])
     evidence = _deduplicate_evidence(evidence)
-    snapshots = _history(activities, stories, now); _apply_current_repository_signal(snapshots, repo_details, now, len(evidence), technology.get("signal_calibration"))
-    return {"technology": technology, "snapshots": snapshots, "evidence": evidence, "source_errors": errors, "source_counts": {"github_repositories": len(repo_details), "hacker_news_stories": len(stories), "news_items": len(news)}}
+    source_health = {"github": github_ok, "hacker_news": hn_ok, "google_news": news_ok}
+    snapshots = _history(activities, stories, now)
+    snapshots[-1]["features"]["coverage"] = _source_coverage(source_health)
+    snapshots[-1]["coverage_warning"] = None if all(source_health.values()) else "Partial collection: one or more configured source families did not complete."
+    _apply_current_repository_signal(snapshots, repo_details, now, technology.get("signal_calibration"))
+    return {"technology": technology, "snapshots": snapshots, "evidence": evidence, "source_errors": errors, "source_counts": {"github_repositories": len(repo_details), "hacker_news_stories": len(stories), "news_items": len(news)}, "source_health": source_health}
 
 
 def collect_live_data(now: datetime | None = None) -> dict[str, Any]:
@@ -311,6 +327,8 @@ def validate_live_data(data: dict[str, Any]) -> dict[str, Any]:
                 lower = -100 if name == "momentum" else 0
                 if not isinstance(value, (int, float)) or not lower <= value <= 100:
                     raise ValueError(f"Invalid {name} value for {technology_id} at {snapshot.get('week')}")
+            if "momentum_available" in features and not isinstance(features["momentum_available"], bool):
+                raise ValueError(f"Invalid momentum availability for {technology_id} at {snapshot.get('week')}")
         evidence = profile.get("evidence")
         if not isinstance(evidence, list):
             raise ValueError(f"Evidence must be a list for {technology_id}")
@@ -326,9 +344,12 @@ def _reconcile_cached_coverage(data: dict[str, Any]) -> dict[str, Any]:
         snapshots = profile.get("snapshots", [])
         if not snapshots:
             continue
-        counts = profile.get("source_counts", {})
-        repositories = int(counts.get("github_repositories", 0))
-        evidence_count = len(profile.get("evidence", []))
+        errors = profile.get("source_errors", [])
+        source_health = {
+            "github": not any(value.startswith("GitHub") for value in errors),
+            "hacker_news": not any(value.startswith("Hacker News") for value in errors),
+            "google_news": not any(value.startswith("Google News RSS") for value in errors),
+        }
         previous_phase = None
         for index, snapshot in enumerate(snapshots):
             features = snapshot["features"]
@@ -337,7 +358,10 @@ def _reconcile_cached_coverage(data: dict[str, Any]) -> dict[str, Any]:
             if snapshot.get("model_version") != METHODOLOGY_VERSION:
                 features["adoption"] = _clamp(min(features["adoption"], 45))
             if index == len(snapshots) - 1:
-                features["coverage"] = _clamp(max(features["coverage"], 30 + repositories * 8 + min(12, evidence_count / 3)))
+                features["coverage"] = _source_coverage(source_health)
+                features["momentum_available"] = False
+                snapshot["period_status"] = "settling"
+                snapshot["coverage_warning"] = None if all(source_health.values()) else "Partial collection: one or more configured source families did not complete."
             snapshot.update(infer(features, previous_phase))
             snapshot["model_version"] = METHODOLOGY_VERSION
             previous_phase = snapshot["phase"]

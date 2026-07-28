@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 
-METHODOLOGY_VERSION = "public-metadata-explainable-v3"
+METHODOLOGY_VERSION = "public-metadata-explainable-v4"
 
 GLOSSARY: dict[str, dict[str, str]] = {
     "attention": {
@@ -30,11 +30,11 @@ GLOSSARY: dict[str, dict[str, str]] = {
     },
     "momentum": {
         "label": "Momentum",
-        "definition": "Recent direction of the measured signals compared with their trailing baseline. Positive means activity is expanding; negative means it is contracting.",
+        "definition": "Direction of completed weekly signals compared with their trailing baseline. ARGUS withholds it while the current week is still settling, rather than treating incomplete activity as a contraction.",
     },
     "coverage": {
         "label": "Evidence coverage",
-        "definition": "Completeness of the configured public-source collection for this estimate. It is not the percentage of the entire internet that ARGUS observed.",
+        "definition": "Share of configured public-source families that completed for this estimate. It is not the percentage of the entire internet that ARGUS observed.",
     },
     "hype_gap": {
         "label": "Hype gap",

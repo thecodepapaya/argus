@@ -125,10 +125,12 @@ class OperationsStore:
         if column not in columns:
             self.connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
+    def _insert_audit(self, actor: str, action: str, object_type: str, object_id: str, detail: dict[str, Any]) -> None:
+        self.connection.execute("INSERT INTO audit_events VALUES (?, ?, ?, ?, ?, ?, ?)", (str(uuid.uuid4()), actor, action, object_type, object_id, json.dumps(detail), _now()))
+
     @serialized_write
     def audit(self, actor: str, action: str, object_type: str, object_id: str, detail: dict[str, Any]) -> None:
-        self.connection.execute("INSERT INTO audit_events VALUES (?, ?, ?, ?, ?, ?, ?)", (str(uuid.uuid4()), actor, action, object_type, object_id, json.dumps(detail), _now()))
-        self.connection.commit()
+        self._insert_audit(actor, action, object_type, object_id, detail)
 
     @serialized_write
     def bootstrap(self, payload: dict[str, Any]) -> None:
@@ -189,7 +191,7 @@ class OperationsStore:
                 INSERT INTO sources VALUES (?, ?, ?, ?, 'active', '{}', ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     status = 'active',
-                    last_success_at = excluded.last_success_at,
+                    last_success_at = COALESCE(excluded.last_success_at, sources.last_success_at),
                     last_error = excluded.last_error
                 """,
                 (source_id, technology_id, name, source_class, _now() if not error else None, error),
@@ -373,15 +375,22 @@ class OperationsStore:
 
     @serialized_write
     def save_collection(self, technology_id: str, collected: dict[str, Any], actor: str, status: str = "completed") -> str:
-        if not self.technology(technology_id): raise ValueError("Technology not found")
+        technology = self.technology(technology_id)
+        if not technology: raise ValueError("Technology not found")
         if not collected.get("snapshots"): raise ValueError("Collection did not produce any snapshots")
         profile = collected["technology"]
         self.connection.execute("UPDATE technologies SET profile_json = ?, updated_at = ? WHERE id = ?", (json.dumps(profile), _now(), technology_id))
-        self._replace_snapshots(technology_id, collected["snapshots"]); self._replace_evidence(technology_id, collected["evidence"])
         self._default_sources(technology_id, collected.get("source_errors", []))
-        self.connection.commit()
-        run_id = self._create_run(technology_id, collected["snapshots"][-1]["week"], "partial" if collected.get("source_errors") else status, "published" if status == "published" else "completed", {"source_counts": collected.get("source_counts", {}), "documents": len(collected["evidence"])}, collected.get("source_errors", [])); self.connection.commit()
-        self.audit(actor, "collect", "run", run_id, {"technology": technology_id}); return run_id
+        source_health = collected.get("source_health", {})
+        successful_sources = sum(value is True for value in source_health.values())
+        has_existing_publication = bool(self.snapshots(technology_id)) and technology["status"] == "active"
+        if source_health and successful_sources < 2 and has_existing_publication:
+            run_id = self._create_run(technology_id, collected["snapshots"][-1]["week"], "partial", "held", {"source_counts": collected.get("source_counts", {}), "source_health": source_health, "documents": len(collected["evidence"]), "publication_held": True}, collected.get("source_errors", []))
+            self._insert_audit(actor, "hold_collection", "run", run_id, {"technology": technology_id, "successful_sources": successful_sources})
+            return run_id
+        self._replace_snapshots(technology_id, collected["snapshots"]); self._replace_evidence(technology_id, collected["evidence"])
+        run_id = self._create_run(technology_id, collected["snapshots"][-1]["week"], "partial" if collected.get("source_errors") else status, "published" if status == "published" else "completed", {"source_counts": collected.get("source_counts", {}), "source_health": source_health, "documents": len(collected["evidence"])}, collected.get("source_errors", []))
+        self._insert_audit(actor, "collect", "run", run_id, {"technology": technology_id}); return run_id
 
     @serialized_write
     def review(self, evidence_id: str, status: str, note: str, actor: str) -> None:

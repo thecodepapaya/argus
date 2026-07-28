@@ -86,7 +86,7 @@ class ArgusApplication:
     def readiness(self) -> dict[str, Any]:
         return {"status": "ok", "service": "argus", "time": _now(), **self.store.health()}
 
-    def refresh(self, technology_id: str | None, actor: str) -> dict[str, Any]:
+    def refresh(self, technology_id: str | None, actor: str, force: bool = False) -> dict[str, Any]:
         if not self._refresh_lock.acquire(blocking=False):
             raise ApiError(HTTPStatus.CONFLICT, "refresh_in_progress", "A data refresh is already running")
         try:
@@ -95,6 +95,8 @@ class ArgusApplication:
                 if not technology:
                     raise ApiError(HTTPStatus.NOT_FOUND, "technology_not_found", "Technology not found")
                 technologies = [technology]
+            elif force:
+                technologies = self.store.technologies()
             else:
                 plateau_weeks = max(8, int(os.environ.get("ARGUS_PLATEAU_WEEKS", "12")))
                 self.store.evaluate_analysis_cadence(actor, plateau_weeks)
@@ -103,7 +105,7 @@ class ArgusApplication:
             for technology in technologies:
                 collected = collect_technology(technology)
                 run_ids.append(self.store.save_collection(technology["id"], collected, actor, "published"))
-            return {"run_ids": run_ids, "completed_at": _now()}
+            return {"run_ids": run_ids, "completed_at": _now(), "mode": "forced" if force and not technology_id else "scheduled"}
         finally:
             self._refresh_lock.release()
 
@@ -382,7 +384,7 @@ class Handler(SimpleHTTPRequestHandler):
         actor = self.headers.get("X-Argus-Actor", "local-admin")[:100]
         store = self.application.store
         try:
-            if route == "refresh": self._json(self.application.refresh(payload.get("technology_id"), actor), HTTPStatus.CREATED); return
+            if route == "refresh": self._json(self.application.refresh(payload.get("technology_id"), actor, bool(payload.get("force"))), HTTPStatus.CREATED); return
             if route == "technologies/enrich": self._json(enrich_profile(payload.get("display_name"), payload.get("definition"))); return
             if route == "technologies": self._json(store.create_technology(payload, actor), HTTPStatus.CREATED); return
             parts = route.split("/")

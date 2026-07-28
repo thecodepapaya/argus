@@ -26,8 +26,8 @@ All dimensions except momentum use a 0–100 normalized scale. Momentum ranges f
 | Disappointment | Setback, limitation, security, reliability, or failure language |
 | Verified adoption | A deliberately conservative public-use signal; repository activity is capped as a weak proxy and is not production proof |
 | Operational maturity | Maintenance, release, governance, integration, and operating-practice signals |
-| Momentum | Current activity relative to a trailing four-week baseline |
-| Evidence coverage | Completeness of configured source collection, not percentage of the internet observed |
+| Momentum | Completed-week activity relative to a trailing four-week baseline. It is withheld while the current week is settling, so incomplete activity cannot appear as a contraction. |
+| Evidence coverage | Share of configured source families that completed collection, not percentage of the internet observed |
 
 `hype_gap = expectations - adoption`. A positive result means claims are running ahead of observed use. It is not a prediction that the technology will fail.
 
@@ -39,7 +39,7 @@ The implemented metadata weights are 0.90 for GitHub repository evidence, 0.62 f
 
 The deterministic scoring model in `backend/src/argus/inference/engine.py` evaluates five qualitative phases. It combines the dimensions with explicit weights and adds only a modest continuity preference for the same or an adjacent prior phase. Softmax converts scores to a phase distribution. No LLM selects a phase.
 
-Confidence combines source coverage and separation between the two leading phase scores, then applies conflict and coverage caps. The UI shows low, moderate, or high confidence; the numeric score is a model diagnostic, not measured accuracy.
+Confidence combines source coverage and separation between the two leading phase scores, then applies conflict and coverage caps. Source coverage is based on the actual completion outcome of GitHub, Hacker News, and Google News RSS—not the number of collected headlines or commits. The UI shows low, moderate, or high confidence; the numeric score is a model diagnostic, not measured accuracy.
 
 ## Lifecycle cadence
 
@@ -51,4 +51,5 @@ Active technologies are analyzed weekly by default. After 12 consecutive weekly 
 - Current historical signals are reconstructed from GitHub and Hacker News metadata.
 - Headline keyword classification can miss context and must not be treated as semantic fact extraction.
 - News RSS availability and repository APIs can be incomplete or rate-limited.
+- The latest weekly snapshot can omit momentum while its period is settling; ARGUS deliberately does not infer a direction from a partial week.
 - ARGUS is independent, not affiliated with Gartner, and does not reproduce official Gartner research.

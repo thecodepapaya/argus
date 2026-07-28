@@ -4,6 +4,7 @@ from pathlib import Path
 import unittest
 import json
 from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
@@ -94,3 +95,34 @@ class OperationsStoreTests(unittest.TestCase):
         self.assertEqual(reviewed["status"], "reviewed")
         with self.assertRaisesRegex(ValueError, "already tracks"):
             self.store.create_visitor_suggestion("Model Context Protocol (MCP)")
+
+    def test_failed_collection_write_rolls_back_everything(self):
+        technology_id = "model-context-protocol"
+        existing = self.store.snapshots(technology_id)
+        collected = {
+            "technology": self.store.technology(technology_id),
+            "snapshots": existing,
+            "evidence": [],
+            "source_errors": [],
+            "source_health": {"github": True, "hacker_news": True, "google_news": True},
+            "source_counts": {},
+        }
+        with patch.object(self.store, "_insert_audit", side_effect=RuntimeError("database write failed")):
+            with self.assertRaisesRegex(RuntimeError, "database write failed"):
+                self.store.save_collection(technology_id, collected, "tester", "published")
+        self.assertEqual(self.store.snapshots(technology_id), existing)
+
+    def test_insufficient_source_collection_keeps_active_publication(self):
+        technology_id = "model-context-protocol"
+        existing = self.store.snapshots(technology_id)
+        collected = {
+            "technology": self.store.technology(technology_id),
+            "snapshots": [{**existing[-1], "features": {**existing[-1]["features"], "attention": 99}}],
+            "evidence": [],
+            "source_errors": ["GitHub example: unavailable", "Hacker News: unavailable"],
+            "source_health": {"github": False, "hacker_news": False, "google_news": True},
+            "source_counts": {},
+        }
+        run_id = self.store.save_collection(technology_id, collected, "tester", "published")
+        self.assertEqual(self.store.run(run_id)["stage"], "held")
+        self.assertEqual(self.store.snapshots(technology_id), existing)

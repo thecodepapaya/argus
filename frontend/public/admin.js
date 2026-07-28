@@ -280,22 +280,29 @@
   $('#technology-admin-status').addEventListener('change', renderTechnologyAdmin);
   $('#source-status-filter').addEventListener('change', renderSources);
   $('#evidence-more').addEventListener('click', () => { state.evidenceVisible += 12; renderEvidence(); });
-  $('#refresh-all').addEventListener('click', async () => {
-    const button = $('#refresh-all');
-    button.disabled = true;
-    button.textContent = 'Analysis running…';
-    message('Running all technologies currently due for analysis.');
+  async function runCollection(force) {
+    const scheduledButton = $('#refresh-all');
+    const forceButton = $('#force-refresh-all');
+    const button = force ? forceButton : scheduledButton;
+    scheduledButton.disabled = true;
+    forceButton.disabled = true;
+    button.textContent = force ? 'Force collection running…' : 'Analysis running…';
+    message(force ? 'Force collecting every active technology.' : 'Running all technologies currently due for analysis.');
     try {
-      await api('refresh', { method: 'POST', body: '{}', timeoutMs: LONG_OPERATION_TIMEOUT_MS });
+      await api('refresh', { method: 'POST', body: JSON.stringify({ force }), timeoutMs: LONG_OPERATION_TIMEOUT_MS });
       await reload();
-      message('Scheduled analysis completed.', 'success');
+      message(force ? 'Force collection completed.' : 'Scheduled analysis completed.', 'success');
     } catch (error) {
-      message(describeError(error, 'Scheduled analysis failed'), 'error');
+      message(describeError(error, force ? 'Force collection failed' : 'Scheduled analysis failed'), 'error');
     } finally {
-      button.disabled = false;
-      button.innerHTML = '<span aria-hidden="true">↻</span> Run scheduled analysis';
+      scheduledButton.disabled = false;
+      forceButton.disabled = false;
+      scheduledButton.innerHTML = '<span aria-hidden="true">↻</span> Run scheduled analysis';
+      forceButton.innerHTML = '<span aria-hidden="true">↻</span> Force collect all';
     }
-  });
+  }
+  $('#refresh-all').addEventListener('click', () => runCollection(false));
+  $('#force-refresh-all').addEventListener('click', () => runCollection(true));
   $('#technology-form').addEventListener('submit', async event => {
     event.preventDefault();
     const form = new FormData(event.target);

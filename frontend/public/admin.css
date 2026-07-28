@@ -362,7 +362,10 @@
   line-height: 1.7;
 }
 
-.admin-heading > .primary-action {
+.analysis-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 5px;
   white-space: nowrap;
 }
@@ -1138,8 +1141,10 @@
     display: block;
   }
 
-  .admin-heading > .primary-action {
+  .analysis-actions {
     margin-top: 26px;
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .admin-summary,

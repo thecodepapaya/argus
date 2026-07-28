@@ -26,7 +26,7 @@ def _softmax(scores: dict[str, float]) -> dict[str, float]:
     return {key: round(value / total, 4) for key, value in scaled.items()}
 
 
-def infer(features: dict[str, float], previous_phase: str | None = None) -> dict[str, Any]:
+def infer(features: dict[str, Any], previous_phase: str | None = None) -> dict[str, Any]:
     """Return a transparent phase estimate from normalized 0–100 feature values.
 
     This intentionally uses interpretable scoring rather than an opaque trained model.
@@ -39,29 +39,33 @@ def infer(features: dict[str, float], previous_phase: str | None = None) -> dict
     adoption = _clip(features["adoption"])
     maturity = _clip(features["maturity"])
     momentum = max(-100.0, min(100.0, features["momentum"]))
+    momentum_available = features.get("momentum_available", True) is not False
+    positive_momentum = max(momentum, 0) if momentum_available else 0
+    negative_momentum = max(-momentum, 0) if momentum_available else 0
+    stable_momentum = max(35 - abs(momentum), 0) if momentum_available else 0
     hype_gap = expectations - adoption
 
     scores = {
         "innovation_trigger": (
-            0.46 * max(momentum, 0) + 0.22 * attention + 0.18 * expectations
+            0.46 * positive_momentum + 0.22 * attention + 0.18 * expectations
             + 0.24 * (100 - adoption) + 0.12 * (100 - maturity) - 0.24 * disappointment
         ),
         "peak_of_inflated_expectations": (
             0.42 * attention + 0.57 * expectations + 0.56 * max(hype_gap, 0)
-            + 0.20 * max(momentum, 0) - 0.26 * adoption - 0.18 * maturity
+            + 0.20 * positive_momentum - 0.26 * adoption - 0.18 * maturity
         ),
         "trough_of_disillusionment": (
-            0.63 * disappointment + 0.30 * max(-momentum, 0)
+            0.63 * disappointment + 0.30 * negative_momentum
             + 0.24 * max(45 - attention, 0) + 0.15 * max(55 - adoption, 0)
             - 0.17 * maturity
         ),
         "slope_of_enlightenment": (
-            0.50 * adoption + 0.56 * maturity + 0.22 * max(momentum, 0)
+            0.50 * adoption + 0.56 * maturity + 0.22 * positive_momentum
             + 0.24 * max(35 - abs(hype_gap), 0) + 0.10 * attention
             - 0.27 * disappointment
         ),
         "plateau_of_productivity": (
-            0.61 * adoption + 0.64 * maturity + 0.20 * max(35 - abs(momentum), 0)
+            0.61 * adoption + 0.64 * maturity + 0.20 * stable_momentum
             + 0.14 * max(35 - abs(hype_gap), 0) - 0.17 * attention - 0.20 * disappointment
         ),
     }

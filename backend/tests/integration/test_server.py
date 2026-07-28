@@ -75,6 +75,16 @@ class ServerIntegrationTests(unittest.TestCase):
         titles = [" ".join("".join(character.lower() if character.isalnum() else " " for character in item["title"]).split()) for item in evidence["items"]]
         self.assertEqual(len(titles), len(set(titles)))
 
+    def test_force_collection_includes_active_technologies_not_due_for_analysis(self):
+        self.application.store.set_analysis_cadence("model-context-protocol", "quarterly", "tester")
+        cache = load_live_cache()
+        with patch("argus.server.collect_technology", side_effect=lambda technology: cache["technologies"][technology["id"]]) as collect:
+            result = self.application.refresh(None, "tester", force=True)
+        self.assertEqual(result["mode"], "forced")
+        self.assertEqual(collect.call_count, len(self.application.store.technologies()))
+        collected_ids = {call.args[0]["id"] for call in collect.call_args_list}
+        self.assertIn("model-context-protocol", collected_ids)
+
     def test_public_faq_route(self):
         with urlopen(self.base_url + "/faq", timeout=5) as response:
             body = response.read().decode("utf-8")
