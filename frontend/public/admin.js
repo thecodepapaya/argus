@@ -3,6 +3,7 @@
   const $ = (selector) => document.querySelector(selector);
   const esc = (value) => escapeHtml(plainText(value));
   const LONG_OPERATION_TIMEOUT_MS = 90000;
+  const ADMIN_TOKEN_STORAGE_KEY = 'argus.admin-token';
   const state = { token: '', evidence: [], evidenceVisible: 12, technologies: [], sources: [], technologyNames: new Map(), jobPoll: null };
 
   const friendlyDate = (value) => {
@@ -270,8 +271,8 @@
     showHashView();
   }
 
-  async function login() {
-    state.token = $('#token').value;
+  async function login(remembered = false) {
+    state.token = $('#token').value.trim();
     $('#login-button').disabled = true;
     try {
       await reload();
@@ -280,8 +281,10 @@
       document.body.classList.add('console-open');
       setupSidebarNavigation();
       state.jobPoll = window.setInterval(() => loadCollectionJobs().catch(() => {}), 2500);
+      localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, state.token);
       $('#login-error').textContent = '';
     } catch (error) {
+      if (remembered) localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
       $('#login-error').textContent = describeError(error, 'Console access failed');
     } finally {
       $('#login-button').disabled = false;
@@ -290,6 +293,11 @@
 
   $('#login-button').addEventListener('click', login);
   $('#token').addEventListener('keydown', event => { if (event.key === 'Enter') login(); });
+  const rememberedToken = localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
+  if (rememberedToken) {
+    $('#token').value = rememberedToken;
+    login(true);
+  }
   $('#evidence-filter').addEventListener('change', () => loadEvidence().catch(error => message(describeError(error, 'Evidence filter failed'), 'error')));
   $('#evidence-tech-filter').addEventListener('change', () => loadEvidence().catch(error => message(describeError(error, 'Technology filter failed'), 'error')));
   $('#technology-admin-search').addEventListener('input', renderTechnologyAdmin);
