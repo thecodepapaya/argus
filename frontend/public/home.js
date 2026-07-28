@@ -11,21 +11,14 @@ const movement = (change, label) => {
 };
 
 function portfolioSummary(items, methodology) {
-  const latestWeek = items.map(item => item.current.week).sort().at(-1) || '—';
-  const largestMover = items.reduce((largest, item) => {
-    const adoptionChange = item.change.month.adoption;
-    return !largest || Math.abs(adoptionChange) > Math.abs(largest.change.month.adoption) ? item : largest;
-  }, null);
-  const averageCoverage = items.length
-    ? Math.round(items.reduce((total, item) => total + item.current.features.coverage, 0) / items.length)
-    : 0;
-  const weekLabel = latestWeek === '—'
-    ? latestWeek
-    : new Date(`${latestWeek}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  const moverName = largestMover?.technology.display_name || 'No estimate yet';
-  const moverChange = largestMover ? `${delta(largestMover.change.month.adoption)} pts` : '—';
-
-  return `<div><b>Week of ${h(weekLabel)}</b><span>latest estimate window</span></div><div><b>${h(moverName)} <i>${h(moverChange)}</i></b><span>largest monthly ${tooltipTerm('adoption', 'adoption', methodology)}</span></div><div><b>${averageCoverage}%</b><span>average ${tooltipTerm('evidence coverage', 'coverage', methodology)}</span></div>`;
+  const largestMover = (metric) => items.reduce((largest, item) => !largest || Math.abs(item.change.month[metric]) > Math.abs(largest.change.month[metric]) ? item : largest, null);
+  const summary = (metric, label) => {
+    const item = largestMover(metric);
+    const name = item?.technology.display_name || 'No estimate yet';
+    const change = item ? `${delta(item.change.month[metric])} pts` : '—';
+    return `<div><b>${h(name)} <i>${h(change)}</i></b><span>Largest 30-day change in ${label}</span></div>`;
+  };
+  return `${summary('attention', 'public attention')} ${summary('adoption', 'observed adoption signals')} ${summary('maturity', 'operational maturity signals')}`;
 }
 
 function card({ technology, current, change, source_errors: sourceErrors }, methodology) {
