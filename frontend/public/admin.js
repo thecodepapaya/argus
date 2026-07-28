@@ -3,7 +3,7 @@
   const $ = (selector) => document.querySelector(selector);
   const esc = (value) => escapeHtml(plainText(value));
   const LONG_OPERATION_TIMEOUT_MS = 90000;
-  const state = { token: '', evidence: [], evidenceVisible: 12, technologies: [], sources: [], technologyNames: new Map() };
+  const state = { token: '', evidence: [], evidenceVisible: 12, technologies: [], sources: [], technologyNames: new Map(), jobPoll: null };
 
   const friendlyDate = (value) => {
     if (!value) return '—';
@@ -221,10 +221,25 @@
     }));
   }
 
+  async function loadCollectionJobs() {
+    const data = await api('collection-jobs');
+    $('#collection-job-list').innerHTML = data.items.map(job => {
+      const percent = job.total ? Math.round(job.completed / job.total * 100) : 100;
+      const items = job.detail.items.map(item => `<li><b>${esc(technologyName(item.technology_id))}</b> · ${esc(item.status)}${item.errors?.length ? ` · ${esc(item.errors.join(' | '))}` : ''}</li>`).join('');
+      const retry = job.detail.items.some(item => ['failed', 'partial'].includes(item.status)) ? `<button class="secondary-action" data-retry-job="${esc(job.id)}">Retry affected</button>` : '';
+      return `<article class="collection-job panel"><div class="collection-job-header"><div><span class="status-pill ${job.status.includes('error') || job.status === 'failed' ? 'warning' : ''}">${esc(job.status.replaceAll('_', ' '))}</span><h3>${esc(job.mode)} collection · ${job.completed}/${job.total}</h3></div><small class="subtle">${esc(friendlyTimestamp(job.started_at))}</small></div><div class="job-progress"><i style="width:${percent}%"></i></div><div class="collection-job-footer"><p>${job.current_technology_id ? `Collecting ${esc(technologyName(job.current_technology_id))}` : (job.errors.length ? job.errors.join(' · ') : 'No active collection step.')}</p>${retry}</div>${items ? `<ul class="job-items">${items}</ul>` : ''}</article>`;
+    }).join('') || '<div class="empty-state panel"><b>No collection jobs yet</b><p>Run scheduled analysis or force collection to create a monitored job.</p></div>';
+    document.querySelectorAll('[data-retry-job]').forEach(button => button.addEventListener('click', async () => {
+      button.disabled = true;
+      try { await api(`collection-jobs/${encodeURIComponent(button.dataset.retryJob)}/retry`, { method: 'POST', body: '{}' }); message('Retry job queued.', 'success'); await loadCollectionJobs(); }
+      catch (error) { message(describeError(error, 'Retry could not be queued'), 'error'); button.disabled = false; }
+    }));
+  }
+
   async function reload() {
     const overview = await api('overview');
     renderOverview(overview);
-    const results = await Promise.allSettled([loadEvidence(), loadTechnologies(), loadDiscovery()]);
+    const results = await Promise.allSettled([loadEvidence(), loadTechnologies(), loadDiscovery(), loadCollectionJobs()]);
     const failure = results.find(result => result.status === 'rejected');
     if (failure) message(describeError(failure.reason, 'Some console data could not be loaded'), 'error');
   }
@@ -264,6 +279,7 @@
       $('#console').classList.remove('hidden');
       document.body.classList.add('console-open');
       setupSidebarNavigation();
+      state.jobPoll = window.setInterval(() => loadCollectionJobs().catch(() => {}), 2500);
       $('#login-error').textContent = '';
     } catch (error) {
       $('#login-error').textContent = describeError(error, 'Console access failed');
@@ -289,9 +305,10 @@
     button.textContent = force ? 'Force collection running…' : 'Analysis running…';
     message(force ? 'Force collecting every active technology.' : 'Running all technologies currently due for analysis.');
     try {
-      await api('refresh', { method: 'POST', body: JSON.stringify({ force }), timeoutMs: LONG_OPERATION_TIMEOUT_MS });
-      await reload();
-      message(force ? 'Force collection completed.' : 'Scheduled analysis completed.', 'success');
+      const job = await api('refresh', { method: 'POST', body: JSON.stringify({ force }), timeoutMs: 10000 });
+      await loadCollectionJobs();
+      window.location.hash = '#collection-jobs';
+      message(`${force ? 'Force' : 'Scheduled'} collection queued. Monitor job ${job.id.slice(0, 8)} for progress.`, 'success');
     } catch (error) {
       message(describeError(error, force ? 'Force collection failed' : 'Scheduled analysis failed'), 'error');
     } finally {

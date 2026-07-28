@@ -377,6 +377,16 @@
   margin-top: 58px;
 }
 
+.collection-job-list { display: grid; gap: 12px; }
+.collection-job { padding: 20px; }
+.collection-job-header, .collection-job-footer { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.collection-job h3 { margin: 0; font-size: 15px; }
+.collection-job p { margin: 8px 0 0; color: var(--muted); font-size: 11px; }
+.job-progress { height: 5px; margin: 17px 0 12px; background: rgba(121,239,200,.12); overflow: hidden; }
+.job-progress i { display: block; height: 100%; background: var(--green); transition: width .25s ease; }
+.job-items { margin: 13px 0 0; padding: 0; list-style: none; color: var(--muted); font: 10px 'DM Mono', monospace; }
+.job-items li { padding: 5px 0; border-top: 1px solid var(--line); }
+
 .summary-card {
   min-height: 150px;
   padding: 22px;

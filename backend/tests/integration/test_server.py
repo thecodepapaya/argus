@@ -4,6 +4,7 @@ import socket
 import sys
 import tempfile
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import unittest
@@ -84,6 +85,20 @@ class ServerIntegrationTests(unittest.TestCase):
         self.assertEqual(collect.call_count, len(self.application.store.technologies()))
         collected_ids = {call.args[0]["id"] for call in collect.call_args_list}
         self.assertIn("model-context-protocol", collected_ids)
+
+    def test_queued_collection_returns_immediately_and_records_progress(self):
+        cache = load_live_cache()
+        with patch("argus.server.collect_technology", side_effect=lambda technology: cache["technologies"][technology["id"]]):
+            job = self.application.queue_refresh("ai-browser-agents", "tester", force=True)
+            self.assertEqual(job["status"], "queued")
+            for _ in range(100):
+                result = self.application.store.collection_job(job["id"])
+                if result and result["status"] in {"completed", "completed_with_errors", "failed"}:
+                    break
+                time.sleep(0.01)
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["completed"], 1)
+        self.assertEqual(result["detail"]["items"][0]["technology_id"], "ai-browser-agents")
 
     def test_public_faq_route(self):
         with urlopen(self.base_url + "/faq", timeout=5) as response:

@@ -113,6 +113,14 @@ class OperationsStore:
           normalized_name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'new',
           created_at TEXT NOT NULL, updated_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS collection_jobs (
+          id TEXT PRIMARY KEY, status TEXT NOT NULL, mode TEXT NOT NULL,
+          total INTEGER NOT NULL, completed INTEGER NOT NULL DEFAULT 0,
+          current_technology_id TEXT, started_at TEXT NOT NULL, completed_at TEXT,
+          detail_json TEXT NOT NULL, errors_json TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS collection_jobs_started_idx
+          ON collection_jobs(started_at DESC);
         CREATE INDEX IF NOT EXISTS visitor_technology_suggestions_status_idx
           ON visitor_technology_suggestions(status, created_at DESC);
         """)
@@ -213,6 +221,52 @@ class OperationsStore:
         completed = _now() if status in {"published", "completed", "partial", "failed"} else None
         self.connection.execute("INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (run_id, technology_id, week, status, stage, _now(), completed, json.dumps(details), json.dumps(errors)))
         return run_id
+
+    @serialized_write
+    def create_collection_job(self, technology_ids: list[str], mode: str) -> dict[str, Any]:
+        job_id, now = str(uuid.uuid4()), _now()
+        detail = {"technology_ids": technology_ids, "items": []}
+        self.connection.execute("INSERT INTO collection_jobs VALUES (?, 'queued', ?, ?, 0, NULL, ?, NULL, ?, '[]')", (job_id, mode, len(technology_ids), now, json.dumps(detail)))
+        self._insert_audit("system", "queue_collection", "collection_job", job_id, {"mode": mode, "total": len(technology_ids)})
+        return self.collection_job(job_id)  # type: ignore[return-value]
+
+    @serialized_write
+    def update_collection_job(self, job_id: str, status: str, completed: int, current_technology_id: str | None, item: dict[str, Any] | None = None, error: str | None = None) -> None:
+        job = self.collection_job(job_id)
+        if not job:
+            raise ValueError("Collection job not found")
+        detail, errors = job["detail"], job["errors"]
+        if item:
+            detail["items"].append(item)
+        if error:
+            errors.append(error[:2000])
+        terminal = status in {"completed", "completed_with_errors", "failed"}
+        self.connection.execute("UPDATE collection_jobs SET status = ?, completed = ?, current_technology_id = ?, completed_at = ?, detail_json = ?, errors_json = ? WHERE id = ?", (status, completed, current_technology_id, _now() if terminal else None, json.dumps(detail), json.dumps(errors), job_id))
+
+    def collection_job(self, job_id: str) -> dict[str, Any] | None:
+        row = self.connection.execute("SELECT * FROM collection_jobs WHERE id = ?", (job_id,)).fetchone()
+        return self._collection_job(row) if row else None
+
+    def collection_jobs(self, limit: int = 30) -> list[dict[str, Any]]:
+        rows = self.connection.execute("SELECT * FROM collection_jobs ORDER BY started_at DESC LIMIT ?", (max(1, min(limit, 100)),))
+        return [self._collection_job(row) for row in rows]
+
+    @serialized_write
+    def recover_abandoned_collection_jobs(self) -> int:
+        """Make interrupted in-process jobs visible and retryable after restart."""
+        rows = self.connection.execute("SELECT id, errors_json FROM collection_jobs WHERE status IN ('queued', 'running')").fetchall()
+        for row in rows:
+            errors = json.loads(row["errors_json"])
+            errors.append("Collection worker stopped before completion; retry the affected technologies.")
+            self.connection.execute("UPDATE collection_jobs SET status = 'failed', completed_at = ?, errors_json = ? WHERE id = ?", (_now(), json.dumps(errors), row["id"]))
+        return len(rows)
+
+    @staticmethod
+    def _collection_job(row: sqlite3.Row) -> dict[str, Any]:
+        item = dict(row)
+        item["detail"] = json.loads(item.pop("detail_json"))
+        item["errors"] = json.loads(item.pop("errors_json"))
+        return item
 
     def technologies(self, include_drafts: bool = False) -> list[dict[str, Any]]:
         query = "SELECT * FROM technologies" if include_drafts else "SELECT * FROM technologies WHERE status = 'active'"

@@ -63,6 +63,7 @@ class ArgusApplication:
         if cached is None:
             raise RuntimeError("No public-data cache found. Run `python3 scripts/refresh_data.py` before starting ARGUS.")
         self.store = store or OperationsStore()
+        self.store.recover_abandoned_collection_jobs()
         self.store.bootstrap(cached)
         configured_token = admin_token if admin_token is not None else os.environ.get("ARGUS_ADMIN_TOKEN")
         self.admin_token = configured_token or "argus-local"
@@ -87,6 +88,7 @@ class ArgusApplication:
         return {"status": "ok", "service": "argus", "time": _now(), **self.store.health()}
 
     def refresh(self, technology_id: str | None, actor: str, force: bool = False) -> dict[str, Any]:
+        """Synchronous compatibility path retained for scripts and tests."""
         if not self._refresh_lock.acquire(blocking=False):
             raise ApiError(HTTPStatus.CONFLICT, "refresh_in_progress", "A data refresh is already running")
         try:
@@ -107,6 +109,54 @@ class ArgusApplication:
                 run_ids.append(self.store.save_collection(technology["id"], collected, actor, "published"))
             return {"run_ids": run_ids, "completed_at": _now(), "mode": "forced" if force and not technology_id else "scheduled"}
         finally:
+            self._refresh_lock.release()
+
+    def queue_refresh(self, technology_id: str | None, actor: str, force: bool = False, technology_ids: list[str] | None = None) -> dict[str, Any]:
+        if not self._refresh_lock.acquire(blocking=False):
+            raise ApiError(HTTPStatus.CONFLICT, "refresh_in_progress", "A collection job is already running")
+        try:
+            if technology_ids is not None:
+                technologies = [technology for technology in (self.store.technology(item) for item in technology_ids) if technology and technology["status"] == "active"]
+            elif technology_id:
+                technology = self.store.technology(technology_id)
+                if not technology:
+                    raise ApiError(HTTPStatus.NOT_FOUND, "technology_not_found", "Technology not found")
+                technologies = [technology]
+            elif force:
+                technologies = self.store.technologies()
+            else:
+                plateau_weeks = max(8, int(os.environ.get("ARGUS_PLATEAU_WEEKS", "12")))
+                self.store.evaluate_analysis_cadence(actor, plateau_weeks)
+                technologies = self.store.technologies_due_for_analysis()
+            job = self.store.create_collection_job([technology["id"] for technology in technologies], "forced" if force else "scheduled")
+            worker = threading.Thread(target=self._run_collection_job, args=(job["id"], technologies, actor), daemon=True, name=f"argus-collection-{job['id'][:8]}")
+            worker.start()
+            return job
+        except Exception:
+            self._refresh_lock.release()
+            raise
+
+    def _run_collection_job(self, job_id: str, technologies: list[dict[str, Any]], actor: str) -> None:
+        errors = 0
+        try:
+            for index, technology in enumerate(technologies, start=1):
+                self.store.update_collection_job(job_id, "running", index - 1, technology["id"])
+                try:
+                    collected = collect_technology(technology)
+                    run_id = self.store.save_collection(technology["id"], collected, actor, "published")
+                    item = {"technology_id": technology["id"], "status": "partial" if collected["source_errors"] else "completed", "run_id": run_id, "errors": collected["source_errors"]}
+                    errors += bool(collected["source_errors"])
+                    self.store.update_collection_job(job_id, "running", index, technology["id"] if index < len(technologies) else None, item=item)
+                except Exception as error:
+                    errors += 1
+                    message = str(error)
+                    self.store.update_collection_job(job_id, "running", index, technology["id"] if index < len(technologies) else None, item={"technology_id": technology["id"], "status": "failed", "errors": [message]}, error=f"{technology['id']}: {message}")
+            self.store.update_collection_job(job_id, "completed_with_errors" if errors else "completed", len(technologies), None)
+        except Exception as error:
+            self.store.update_collection_job(job_id, "failed", 0, None, error=str(error))
+        finally:
+            # The worker has its own thread-local SQLite connection.
+            self.store.close()
             self._refresh_lock.release()
 
 
@@ -305,6 +355,11 @@ class Handler(SimpleHTTPRequestHandler):
     def _admin_get(self, route: str, query: dict[str, list[str]]) -> None:
         store = self.application.store
         if route == "overview": self._json({**store.overview(), "runs": store.runs()[:10], "sources": store.sources()}); return
+        if route == "collection-jobs": self._json({"items": store.collection_jobs()}); return
+        if route.startswith("collection-jobs/"):
+            item = store.collection_job(route.split("/", 1)[1])
+            if not item: raise ApiError(HTTPStatus.NOT_FOUND, "collection_job_not_found", "Collection job not found")
+            self._json(item); return
         if route == "runs": self._json({"items": store.runs(query.get("technology_id", [None])[0])}); return
         if route.startswith("runs/"):
             item = store.run(route.split("/", 1)[1])
@@ -384,7 +439,14 @@ class Handler(SimpleHTTPRequestHandler):
         actor = self.headers.get("X-Argus-Actor", "local-admin")[:100]
         store = self.application.store
         try:
-            if route == "refresh": self._json(self.application.refresh(payload.get("technology_id"), actor, bool(payload.get("force"))), HTTPStatus.CREATED); return
+            if route == "refresh": self._json(self.application.queue_refresh(payload.get("technology_id"), actor, bool(payload.get("force"))), HTTPStatus.ACCEPTED); return
+            if route.startswith("collection-jobs/") and route.endswith("/retry"):
+                job_id = route.split("/")[1]
+                job = store.collection_job(job_id)
+                if not job: raise ApiError(HTTPStatus.NOT_FOUND, "collection_job_not_found", "Collection job not found")
+                failed_ids = [item["technology_id"] for item in job["detail"]["items"] if item["status"] in {"failed", "partial"}]
+                if not failed_ids: raise ApiError(HTTPStatus.BAD_REQUEST, "nothing_to_retry", "This job has no failed or partial technologies")
+                self._json(self.application.queue_refresh(None, actor, True, failed_ids), HTTPStatus.ACCEPTED); return
             if route == "technologies/enrich": self._json(enrich_profile(payload.get("display_name"), payload.get("definition"))); return
             if route == "technologies": self._json(store.create_technology(payload, actor), HTTPStatus.CREATED); return
             parts = route.split("/")
@@ -395,8 +457,7 @@ class Handler(SimpleHTTPRequestHandler):
                 if action == "validate": self._json(store.set_status(technology_id, "validated", actor)); return
                 if action == "backfill":
                     collected = collect_technology(technology)
-                    run_id = store.save_collection(technology_id, collected, actor, "completed")
-                    self._json({"run_id": run_id, "preview": collected["snapshots"][-1], "errors": collected["source_errors"]}, HTTPStatus.CREATED); return
+                    self._json(self.application.queue_refresh(technology_id, actor, True), HTTPStatus.ACCEPTED); return
                 if action == "activate": self._json(store.set_status(technology_id, "active", actor)); return
                 if action == "pause": self._json(store.set_status(technology_id, "paused", actor)); return
                 if action == "cadence": self._json(store.set_analysis_cadence(technology_id, str(payload.get("cadence", "")), actor)); return
