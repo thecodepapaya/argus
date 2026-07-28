@@ -1,8 +1,10 @@
 # Source, confidence, and lifecycle resilience plan
 
-Status: proposed  
-Scope: data collection, evidence quality, confidence explanations, and retirement of technologies that fizzle out  
-Related documents: [implemented methodology](METHODOLOGY.md), [operations runbook](runbooks/OPERATIONS.md), [technology discovery](DISCOVERY.md)
+- Status: proposed, revised after implementation audit on 2026-07-28
+- Scope: data collection, evidence quality, confidence explanations, and retirement of technologies that fizzle out
+- Related documents: [implemented methodology](METHODOLOGY.md), [operations runbook](runbooks/OPERATIONS.md), [technology discovery](DISCOVERY.md)
+
+This is an implementation plan, not a description of current behavior. Any item not also described in the implemented methodology must be treated as unshipped. Changes to collection, normalization, inference, confidence, or lifecycle state require a methodology-version change and migration notes.
 
 ## 1. Outcome
 
@@ -38,6 +40,40 @@ ARGUS currently collects:
 Current confidence combines source coverage, separation between the two leading phase scores, and a conflict penalty. Coverage caps confidence, which is directionally correct, but the model cannot yet explain whether confidence is low because of source failures, stale evidence, query ambiguity, missing adoption evidence, closely competing phases, or a short history.
 
 Current tracking cadence supports weekly and quarterly analysis. A sustained Plateau of Productivity moves to quarterly analysis, but there is no explicit outcome for technologies that lose activity before reaching durable adoption.
+
+### 2.1 Code-grounded gap inventory
+
+The following risks exist in the current implementation and should be resolved before adding many more sources. They are ordered by their ability to create a confident but wrong public result.
+
+| Priority | Current behavior | Risk | Required correction |
+| --- | --- | --- | --- |
+| P0 | Historical features are normalized against the maximum value across the entire reconstructed 52-week window | A historical week can use information from later weeks, creating look-ahead bias; reruns can rewrite old scores when a new maximum appears | Use as-of-week trailing baselines, record the normalization policy, and never use observations published after the target week |
+| P0 | The current partial week is treated as a complete week; missing GitHub weekly aggregates become zero commits | Momentum can clamp to `-50` for active technologies merely because GitHub's aggregate has not settled | Mark periods `open`, `settling`, or `closed`; compare only equivalent elapsed portions or publish momentum as unavailable until the period closes |
+| P0 | `coverage` is inferred partly from commits, discussion counts, repository count, and evidence volume | The displayed percentage does not reliably answer whether applicable collectors succeeded | Compute collection completeness from an explicit applicability matrix and attempt outcomes; keep evidence volume separate |
+| P0 | A collection writes snapshots/evidence and commits before the run record is created | A failure between those steps can expose new public data without a matching run manifest or audit trail | Stage a run, validate it, and atomically promote its immutable output and completion record in one transaction |
+| P0 | Partial source runs still replace current estimates without minimum evidence gates | A dependency outage can cause a phase change that looks analytical rather than operational | Abstain and retain the last-known-good public snapshot when required gates fail; show the attempted run separately |
+| P1 | Source weights and keyword rules are hardcoded in `live.py` | Policy changes are difficult to reproduce, review, or compare | Move them to a versioned methodology policy with reasoned claim-specific weights |
+| P1 | GitHub evidence is always marked independent and Google News is stored as one publisher | Official repositories can be misclassified as independent, while syndicated publisher identity is lost | Resolve publisher, ownership, first-party relationship, canonical URL, and event cluster before weighting |
+| P1 | Source status has one row per broad source class, and a failed attempt can overwrite the prior success timestamp | Per-repository failures, empty responses, stale success, and last-known-good state cannot be distinguished | Store append-only collection attempts per configured source instance; derive current health without erasing history |
+| P1 | Every refresh reconstructs and upserts 52 weeks, with no revision ledger | Historical estimates can change silently and comparisons may mix methodology versions | Make observations and derived snapshots immutable by run/methodology version; publish explicit superseding revisions |
+| P1 | Evidence that disappears from a later collection has no validity interval or superseded state | Old records can remain indistinguishable from current evidence | Add `valid_from`, `valid_to`, `last_observed_at`, and `superseded_reason`; define which evidence contributes to each snapshot |
+| P1 | Headline substring matching determines relevance and claim dimension | Ambiguous names, negation, quoted claims, and keyword precedence can misclassify evidence | Add deterministic identity gates, ambiguity flags, review sampling, and an abstaining `unclassified` outcome |
+| P2 | “Verified adoption” is still derived largely from bounded repository activity | The label overstates what the input proves | Rename the internal component to `adoption_signal` until named implementation evidence exists; expose provenance by claim strength |
+
+### 2.2 Immediate safety invariants
+
+These invariants apply before any scoring improvement:
+
+1. A failed or incomplete run cannot replace the last-known-good public snapshot unless its publication gate explicitly passes.
+2. A historical snapshot uses only evidence available on or before its `as_of` time.
+3. A zero measurement is never substituted for an unavailable, not-yet-settled, or failed measurement.
+4. The same immutable input manifest, methodology version, and code version reproduce the same derived snapshot.
+5. Every public snapshot points to exactly one completed run manifest and a complete set of contributing evidence IDs.
+6. Review decisions survive recollection; evidence content revisions are separately versioned.
+7. No evidence item contributes more than once to a claim cluster, regardless of syndication count.
+8. Missing negative evidence is represented as missing, not as proof that no disappointment exists.
+9. A technology profile cannot be published until its identity, aliases, exclusions, and source applicability are validated.
+10. ARGUS may abstain. “Insufficient evidence” is a valid weekly result and must not be coerced into a lifecycle phase change.
 
 ## 3. Design decisions
 
@@ -77,6 +113,53 @@ ARGUS should preserve the final lifecycle estimate and add an outcome such as:
 - `merged_into_parent_category` — evidence is no longer separable from a broader category;
 - `insufficient_distinct_signal` — the term cannot be tracked reliably;
 - `tracking_ended_by_operator` — explicit administrative decision.
+
+### 3.4 Observations, features, estimates, and publication are separate layers
+
+ARGUS needs four immutable boundaries:
+
+```text
+raw observation -> normalized evidence -> derived feature set -> lifecycle estimate -> public publication pointer
+```
+
+- Raw observations preserve what an adapter returned, within retention and licensing limits.
+- Normalized evidence records identity, claim, provenance, and quality policy without embedding a phase.
+- Feature sets are reproducible derivations for one `technology_id × as_of × methodology_version`.
+- Estimates consume only a feature set and prior eligible state.
+- Publication atomically moves a pointer to a validated estimate; it never mutates the previous public result.
+
+This separation enables replay, audit, corrections, and shadow models without recollecting the internet or silently changing history.
+
+### 3.5 Missingness is data
+
+Every input must distinguish:
+
+- `observed_zero` — the source successfully reported no qualifying activity;
+- `not_applicable` — the source is irrelevant to this technology;
+- `not_collected` — the adapter was not scheduled or configured;
+- `collection_failed` — an attempt failed;
+- `settling` — the measurement window is incomplete or the upstream aggregate is delayed;
+- `stale` — a prior value exists but is older than policy allows;
+- `suppressed` — a record was quarantined, excluded, or cannot be retained.
+
+Feature code must not coerce these states to zero. Confidence and publication gates consume missingness explicitly; phase scoring receives a value only when the feature policy says it is usable.
+
+### 3.6 Abstention and correction are first-class outcomes
+
+For each scheduled analysis, ARGUS may produce:
+
+- `published` — a new estimate passed all gates;
+- `unchanged` — new evidence was checked but did not justify a new estimate;
+- `partial_observation` — useful inputs arrived, but publication gates failed;
+- `insufficient_evidence` — ARGUS cannot support a current estimate;
+- `invalidated` — a previously published estimate was withdrawn because of a data or methodology defect;
+- `corrected` — a new immutable revision supersedes a prior estimate.
+
+Public pages should continue serving the last valid estimate with an “as of” date and freshness warning. Corrections require a reason, actor, affected versions, and an audit event; old URLs and API consumers must be able to identify the superseding revision.
+
+### 3.7 Keep confidence independent from lifecycle shape
+
+Confidence must assess whether inputs and inference are trustworthy, not whether a result looks like a familiar hype-cycle trajectory. Continuity and hysteresis may stabilize phase selection, but they cannot increase evidence quality. A decisive score produced by one narrow proxy remains low confidence. Confidence components must therefore be computed outside phase scoring and must not reward conformity to an expected sequence.
 
 ## 4. Source expansion
 
@@ -203,6 +286,62 @@ Add:
 
 The first implementation can use deterministic URL, title, publisher, and time-window rules. Semantic clustering can later be evaluated as a separate, reviewable enrichment step.
 
+### 4.5 Technology identity and query governance
+
+Source expansion will amplify ambiguity unless ARGUS first defines what each tracked entity means. Every profile should include:
+
+```json
+{
+  "identity": {
+    "canonical_name": "Model Context Protocol",
+    "aliases": ["MCP"],
+    "required_context_terms": ["AI", "model context"],
+    "excluded_meanings": ["Microsoft Certified Professional"],
+    "parent_category": "agent interoperability protocols",
+    "successor_ids": [],
+    "geographies": ["global"],
+    "languages": ["en"]
+  },
+  "query_policy_version": "identity-v1"
+}
+```
+
+- Short or overloaded aliases require contextual terms; an alias alone is not a match.
+- Queries, relevance terms, exclusions, and source applicability are versioned together.
+- A query change creates a comparability boundary. Backfill with the new query is stored as a new revision rather than blended silently with the old series.
+- Parent/child profiles must declare overlap rules so one event is not counted as independent evidence for both a framework and its broader category without disclosure.
+- Merge, split, and rename operations preserve stable IDs and create redirects/relationships instead of rewriting old evidence ownership.
+- Profile validation should run a sample query and show estimated precision, collisions, excluded results, and empty-source warnings before publication.
+
+### 4.6 Bias, language coverage, and manipulation resistance
+
+ARGUS is vulnerable to coordinated announcements, repository gaming, bot discussions, SEO spam, and English/open-source selection bias. The methodology should therefore:
+
+- cap the influence of any publisher, repository, community, vendor, or claim cluster;
+- detect sudden low-quality source concentration and abnormal star/download/comment bursts;
+- record suspected automation, promotional language, affiliate content, and undisclosed first-party relationships as quality flags;
+- exclude visitor suggestions and LLM discovery output from lifecycle evidence until a normal adapter independently collects it;
+- publish language and geography coverage for each technology;
+- avoid comparing absolute activity between ecosystems with materially different source availability;
+- maintain adversarial fixtures for press-release floods, link farms, repository-star spikes, and duplicated vendor case studies;
+- require human review before a manipulation flag suppresses otherwise attributable evidence.
+
+These controls reduce influence; they do not assert fraud or remove source records from the audit ledger.
+
+### 4.7 Source admission and retirement policy
+
+Adding an adapter is a methodology change, not merely an integration task. Before activation, document:
+
+- terms of service, robots/API policy, permitted retention, attribution, and redistribution;
+- expected availability, latency, quota, and backfill behavior;
+- target technologies and claim types;
+- precision/recall on a reviewed sample;
+- overlap with existing sources and likely independence group;
+- cost ceiling and behavior when credentials or budget are exhausted;
+- an owner, operational runbook, and removal plan.
+
+Run new sources in shadow mode first. A source can be disabled without making old snapshots unreadable; its historical observations retain adapter and policy versions. Remove or downgrade sources that remain noisy, legally uncertain, operationally unreliable, or redundant after a documented review.
+
 ## 5. Collection reliability
 
 ### 5.1 Adapter contract
@@ -269,6 +408,78 @@ Initial service-level objectives:
 - every failed source exposes an error code, timestamp, retry state, and affected technology;
 - replaying a run produces no duplicate evidence;
 - stale-source alerts fire before the next scheduled analysis window.
+
+Define the measurement window for each objective and publish both the target and actual value in admin. “Completed” means a terminal run outcome with a manifest; a process that disappeared without recording failure does not count as completed.
+
+### 5.5 Run manifest and atomic publication
+
+Every collection/analysis attempt should begin with a durable run record and end in one transaction. The manifest should contain:
+
+```text
+run_id / technology_id / scheduled_for / as_of
+code_revision / methodology_version / profile_version
+adapter_versions / query_policy_version
+source_attempt_ids / input_observation_ids
+normalization_window / feature_set_id / estimate_id
+gate_results / terminal_status / error_codes
+started_at / completed_at / published_at
+```
+
+Recommended state flow:
+
+```text
+scheduled -> collecting -> normalizing -> scoring -> validating
+          -> publishable -> published
+          -> partial_observation | insufficient_evidence | failed | cancelled
+```
+
+- Staged observations may be committed incrementally, but the public publication pointer and terminal run record move atomically.
+- A lease/heartbeat identifies abandoned runs after process death; takeover uses the same idempotency key.
+- Only one publish lease exists for `technology_id × scheduled_for × methodology_version`.
+- Retrying a terminal run creates a linked attempt, not a second indistinguishable run.
+- Public reads never assemble a snapshot from partially written tables.
+
+### 5.6 Time semantics, settling windows, and backfills
+
+Store at least four times: `event_at`, `published_at`, `first_observed_at`, and `collected_at`. The feature policy declares which time it uses.
+
+- Weekly windows use UTC boundaries and a documented timezone-independent `as_of` instant.
+- Sources with delayed aggregates have a source-specific settling period. An open week may show provisional source health but cannot masquerade as a closed-period momentum value.
+- Backfills run in strict as-of mode: evidence published later cannot influence an earlier historical estimate, even if it describes an earlier event.
+- Corrections to publication dates or source content produce a new observation revision.
+- Late-arriving evidence may create a historical correction, but never silently changes an already published snapshot.
+- Comparisons use like-for-like window completeness. A three-day partial week is not compared with seven complete days without explicit partial-window normalization.
+
+### 5.7 Data-quality gates
+
+Before scoring, validate:
+
+- schema and permitted value ranges;
+- temporal consistency and future dates;
+- canonical identity and technology relevance;
+- duplicate/event-cluster membership;
+- source applicability, success, freshness, and retention permission;
+- minimum claim/dimension coverage;
+- distribution shifts against the adapter's recent baseline;
+- impossible jumps or flatlined fallback values;
+- provenance completeness and reproducible weights.
+
+Gate outcomes are machine-readable. Quarantine never means deletion: store a safe diagnostic record with the reason and payload hash, while respecting content-retention policy. An operator can approve, correct, or permanently exclude a quarantined record with an audit event.
+
+### 5.8 Backup, restore, and disaster recovery
+
+SQLite durability is not a backup strategy. Define:
+
+- encrypted daily backups of the database plus WAL-consistent snapshot procedure;
+- retention tiers (for example 7 daily, 8 weekly, and 12 monthly copies) appropriate to cost;
+- an off-host copy and periodic integrity checks;
+- documented recovery point and recovery time objectives; initial targets: RPO 24 hours, RTO 4 hours;
+- quarterly restore drills into an isolated environment;
+- export/import of methodology policies, technology profiles, and publication pointers;
+- verification that secrets, raw restricted content, and transient caches are excluded;
+- rollback procedure for both application image and schema migration.
+
+The committed showcase fixture is a bootstrap convenience, not the recovery source for operational reviews, run history, suggestions, or audit records.
 
 ## 6. Confidence model and explanations
 
@@ -372,6 +583,11 @@ Initial reason-code catalog:
 - `PHASE_SCORES_CLOSE`
 - `PHASE_UNSTABLE`
 - `BACKFILL_ONLY_HISTORY`
+- `CURRENT_PERIOD_SETTLING`
+- `NORMALIZATION_BASELINE_WEAK`
+- `SOURCE_CONCENTRATION_HIGH`
+- `PUBLICATION_GATE_FAILED`
+- `METHODOLOGY_MIXED_HISTORY`
 
 ### 6.4 User experience
 
@@ -414,6 +630,73 @@ Track:
 - false confidence caused by duplicated or first-party evidence.
 
 The score remains a diagnostic unless validation demonstrates probability calibration.
+
+### 6.6 Feature and confidence scoring contract
+
+Before implementation, write a machine-readable policy for every feature and confidence component:
+
+| Required field | Example question |
+| --- | --- |
+| Input claim types | Which normalized claims may contribute? |
+| Applicability | Which source classes are expected for this technology? |
+| Aggregation unit | Is the unit a claim cluster, organization, repository, publisher, or week? |
+| Transform | How are heavy tails, scale, and outliers handled? |
+| Baseline | Is normalization trailing, cohort-relative, or absolute? |
+| Missingness | Which missing states cause abstention, imputation, or a confidence penalty? |
+| Caps | What prevents one source or event from dominating? |
+| Freshness | When does the input decay or expire? |
+| Version | Which policy and code revision produced the value? |
+
+First implementation principles:
+
+- Use robust trailing baselines (median/MAD, percentile rank, or documented bounded transforms) rather than a maximum across the full backfill window.
+- Require a minimum number of closed periods before publishing directional momentum.
+- Compute per-source momentum first, then combine only comparable, available source classes; expose disagreement.
+- Keep absolute level and direction separate. A mature, stable ecosystem can have high adoption with near-zero momentum.
+- Avoid cross-technology rankings until source applicability and scale normalization make comparisons defensible.
+- Store unrounded internal values, but round only at presentation boundaries.
+- Produce a contribution trace showing each usable input, transform, cap, and resulting component value.
+
+Do not assign final numeric weights until the benchmark set and ablation tests exist. The plan's component list is a design constraint, not a pre-approved formula.
+
+### 6.7 Phase stability and transition safeguards
+
+Continuity should prevent noise, not force the Gartner-shaped path. Add:
+
+- a minimum evidence-change threshold before a phase transition;
+- hysteresis bands so a technology does not oscillate at a boundary;
+- explicit support for a backwards move when evidence materially changes;
+- no automatic multi-stage jump unless the evidence delta and phase separation exceed a stronger gate;
+- perturbation analysis that recomputes the estimate after removing each source class and after bounded input changes;
+- `PHASE_UNSTABLE` when plausible perturbations change the winning phase;
+- a public “unchanged due to insufficient new evidence” outcome instead of relying only on continuity bonus;
+- transition reason codes listing the changed features and evidence clusters.
+
+The previous phase may influence selection, but it must never affect the confidence component for evidence quality. State-transition rules and their thresholds belong to the methodology version.
+
+### 6.8 Evaluation protocol and release threshold
+
+Split benchmark data into development and locked evaluation sets. Include technologies from different lifecycle stages, ecosystem sizes, licensing models, and source availability profiles. For each reviewed item:
+
+- use at least two reviewers and adjudicate material disagreements;
+- record reviewer confidence and acceptable phase distribution;
+- measure inter-rater agreement rather than treating one label as ground truth;
+- freeze evidence at an as-of timestamp to prevent leakage;
+- record whether the case is native historical data, backcast data, or synthetic failure injection;
+- prevent examples used to tune thresholds from serving as release evidence.
+
+Minimum release report:
+
+1. relevance precision by source and technology profile;
+2. claim-type precision and abstention rate;
+3. phase-distribution agreement and transition stability;
+4. confidence reliability by band;
+5. sensitivity to source removal, stale inputs, and duplicate floods;
+6. error rates for ambiguous identities and quiet mature technologies;
+7. operator review volume and median time to resolve;
+8. results sliced by source class, language, and technology type.
+
+A new methodology must beat or explain regressions against the current version on the locked set. Raw aggregate improvement cannot hide a severe regression in adoption evidence, identity precision, or false-high-confidence rate.
 
 ## 7. Fizzle-out and lifecycle exit
 
@@ -523,6 +806,17 @@ Add an `Exit review` queue containing:
 
 Every decision must write an audit event. Automatic suggestions cannot directly unpublish or exit a technology.
 
+### 7.7 Exit-review safeguards
+
+- A source outage, query change, profile rename, or settling period suspends vitality decisions for the affected window.
+- Exit rules operate on closed periods and source-specific missingness, not the current partial week.
+- At least one reviewer must inspect counter-evidence and possible successor/parent relationships before confirmation.
+- Fizzle and supersession decisions require different evidence; replacement mentions must not be treated as abandonment automatically.
+- A merged profile records evidence-allocation rules and redirects, preventing double counting after the merge.
+- Exit recommendations expire if not reviewed within a configured period and must be recomputed from fresh data.
+- Track false-positive exit reviews, operator reversals, and time-to-reactivation as model-quality metrics.
+- Reactivation creates a new tracking episode linked to the old one; it does not erase the prior outcome or pretend monitoring was continuous.
+
 ## 8. API and storage work
 
 ### 8.1 Storage migrations
@@ -558,6 +852,38 @@ Proposed admin endpoints:
 
 All state-changing endpoints require the existing admin authentication and audit actor.
 
+### 8.3 Storage ownership and API contracts
+
+Prefer normalized tables for queryable identity, provenance, attempts, reviews, and publication state; JSON payloads remain useful for immutable versioned manifests but should not be the only source of operational truth.
+
+Minimum entities:
+
+```text
+technology_profile_versions     source_config_versions
+collection_runs                 collection_attempts
+raw_observations                evidence_revisions
+claim_clusters                  evidence_cluster_members
+feature_sets                    estimates
+confidence_reasons              publications
+review_decisions                vitality_assessments
+tracking_outcomes               audit_events
+```
+
+Contract requirements:
+
+- stable opaque IDs and explicit schema/methodology versions;
+- cursor pagination and bounded filters for evidence, attempts, and revisions;
+- conditional writes or idempotency keys for retries;
+- explicit `as_of`, `generated_at`, `published_at`, and freshness fields;
+- an `is_provisional`/terminal-status distinction;
+- links from public values to contributing evidence and run manifest;
+- safe error codes that do not expose credentials or restricted content;
+- backward-compatible additive API changes within a version, with deprecation notice before removal;
+- database constraints for legal state transitions, uniqueness, foreign keys, and one active publication pointer per technology;
+- migrations that are transactional where SQLite permits and resumable otherwise.
+
+Large evidence exports and raw diagnostics remain admin-only. Public APIs expose permitted excerpts, attribution, derived values, and provenance—not secrets, full copyrighted bodies, quarantine payloads, or private review notes.
+
 ## 9. Delivery sequence
 
 ### Phase 0 — methodology contract and fixtures
@@ -572,11 +898,32 @@ Exit criteria:
 - old snapshots remain readable;
 - benchmark cases cover sparse, conflicting, duplicated, stale, and fizzled evidence.
 
+### Phase 0A — current-model safety repairs
+
+Complete this before onboarding new source adapters:
+
+- stop treating the open current week and delayed GitHub aggregates as observed zero;
+- replace full-window maximum normalization with closed-period trailing baselines;
+- separate collector completion from evidence volume in coverage;
+- add publication gates and an explicit `insufficient_evidence` outcome;
+- preserve last-known-good source success timestamps and public snapshots;
+- create the run record before collection and atomically finalize publication;
+- add `as_of`, period status, input manifest, and methodology version to derived snapshots;
+- relabel or clearly qualify repository-derived adoption until independent evidence exists.
+
+Exit criteria:
+
+- an active repository with an unsettled current aggregate does not receive artificial `-50` momentum;
+- recomputing a historical week cannot see later evidence or later normalization maxima;
+- injected failure at every publication step leaves either the old public snapshot or one complete new snapshot, never a mixed state;
+- zero, failed, stale, settling, and not-applicable inputs remain distinguishable through the API and admin UI;
+- a partial run cannot change the public phase unless its configured publication gates pass.
+
 ### Phase 1 — collector foundation
 
 - Introduce the adapter interface and normalized envelope.
 - Add source-run metrics, retries, cursors, quarantine, and replay.
-- Refactor existing GitHub, Hacker News, and Google News collectors behind the interface without changing public scores.
+- Refactor existing GitHub, Hacker News, and Google News collectors behind the interface, preserving Phase 0A semantics and recording any unavoidable score change as a methodology revision.
 
 Exit criteria:
 
@@ -593,7 +940,7 @@ Exit criteria:
 
 Exit criteria:
 
-- at least four independent source classes are available for representative technologies;
+- at least four relevant source classes and at least two genuinely independent source groups are available for representative technologies;
 - attribution and first-party status are visible;
 - source-specific freshness is measured.
 
@@ -655,7 +1002,11 @@ Exit criteria:
 - source freshness and independence grouping;
 - confidence components, caps, and reason codes;
 - vitality rules and quiet-productivity safeguards;
-- state-transition validation.
+- state-transition validation;
+- missingness propagation without zero coercion;
+- trailing-baseline calculations with no future observations;
+- property tests for bounds, monotonic caps, idempotency keys, and legal transitions;
+- query identity rules for aliases, exclusions, Unicode, punctuation, and case folding.
 
 ### Integration tests
 
@@ -664,7 +1015,33 @@ Exit criteria:
 - rate limits and malformed responses are visible and recoverable;
 - admin decisions are authenticated and audited;
 - exited technologies leave the active portfolio but retain detail/history access;
-- reactivation restores cadence without losing earlier snapshots.
+- reactivation restores cadence without losing earlier snapshots;
+- failure injection between each storage/publication step proves atomic visibility;
+- concurrent scheduler/retry attempts cannot publish two results for the same run key;
+- evidence review decisions survive recollection and evidence revision;
+- mixed methodology versions remain explicit in history and comparisons;
+- backup restore recreates publication pointers, audit history, and source attempts.
+
+### Adapter contract tests
+
+Each adapter ships recorded, license-safe fixtures for success, empty success, pagination, rate limiting, authentication failure, timeout, malformed payload, schema drift, duplicate pages, delayed data, and cursor resume. Live canary tests run separately so upstream instability cannot make the deterministic test suite flaky.
+
+### Time-travel and backfill tests
+
+- Freeze the clock at each historical week and assert that later observations are inaccessible.
+- Re-run the same as-of manifest after newer data arrives and require byte-equivalent features/estimates.
+- Verify partial-week comparisons use equal elapsed windows or abstain.
+- Verify late-arriving evidence creates an explicit correction rather than mutating the original publication.
+- Verify query/profile revisions do not silently blend incompatible histories.
+
+### Resilience and security tests
+
+- dependency latency, timeouts, HTTP error bursts, invalid certificates, and quota exhaustion;
+- process termination during collection, validation, publication, and migration;
+- disk-full, read-only database, WAL recovery, and corrupted-backup drills in disposable environments;
+- untrusted HTML, prompt-injection text, oversized fields, malicious URLs, SSRF attempts, and log/control-character injection;
+- authorization and CSRF expectations for every admin mutation;
+- secret redaction from logs, errors, manifests, exports, and evidence payloads.
 
 ### Regression fixtures
 
@@ -675,7 +1052,15 @@ Exit criteria:
 - rapidly growing technology with short history;
 - technology that spikes, stalls, and is abandoned;
 - technology superseded by a successor;
-- source outage during an otherwise stable week.
+- source outage during an otherwise stable week;
+- current week with delayed GitHub aggregate but recent repository activity;
+- historical spike that would distort full-window maximum normalization;
+- zero activity returned successfully versus a failed/settling source;
+- first-party announcement repeated by nominally different publications;
+- coordinated star/download/comment spike;
+- query-policy change that alters historical recall;
+- one phase boundary under small input perturbations;
+- a corrected publication with preserved prior revision.
 
 ## 11. Observability and reporting
 
@@ -688,7 +1073,25 @@ Add metrics and structured events for:
 - confidence band and reason-code distribution;
 - confidence changes caused by source failures;
 - technologies in exit review and time awaiting decision;
-- false-positive exit reviews and reactivations.
+- false-positive exit reviews and reactivations;
+- publication age, last-known-good age, abstention rate, and correction rate;
+- lock/lease contention, abandoned runs, retry amplification, and queue delay;
+- backup age, backup verification, and restore-drill outcome.
+
+Every event should carry `run_id`, `technology_id`, `source_config_id`, `adapter_version`, `profile_version`, `methodology_version`, and request/trace ID where applicable. Metrics must use bounded-cardinality labels; evidence IDs and URLs belong in logs/traces, not metric labels.
+
+Initial alerts:
+
+- a scheduled run has no terminal outcome by its deadline;
+- a public estimate exceeds its freshness policy;
+- any required source is stale beyond one analysis window;
+- consecutive failures open a circuit or affect more than a configured share of technologies;
+- accepted/received ratio, duplicate ratio, or quarantine ratio shifts materially from baseline;
+- a phase changes during a partial run, methodology mix, or failed publication gate;
+- high confidence is emitted without all high-confidence gates;
+- backup age exceeds RPO or a restore verification fails.
+
+Alerts should link to the run, affected technologies, reason code, last success, retry state, and runbook. Avoid paging for a single optional-source failure when public data remains fresh; alert severity follows user impact and time-to-staleness.
 
 Admin weekly summary should answer:
 
@@ -698,7 +1101,33 @@ Admin weekly summary should answer:
 4. Which technologies entered exit review?
 5. Which methodology or adapter version changed the result?
 
-## 12. Credentials and external services
+## 12. Data governance, security, and cost controls
+
+### 12.1 Retention and licensing
+
+- Maintain a per-source data inventory covering fields retained, lawful/contractual basis, attribution, redistribution, retention, and deletion procedure.
+- Prefer IDs, URLs, titles, hashes, and short permitted excerpts; do not retain full article bodies by default.
+- Apply source-specific retention automatically and record tombstones/hashes needed for audit without retaining prohibited content.
+- Provide a correction/removal workflow for broken attribution, publisher requests, personal data, and legally restricted material.
+- Preserve derived aggregate reproducibility where possible, but invalidate and republish when source deletion makes a material claim unsupported.
+- Document whether archived public pages remain indexable after tracking ends.
+
+### 12.2 Security boundaries
+
+- Treat feeds, titles, excerpts, URLs, repository metadata, visitor suggestions, and LLM output as untrusted input.
+- Use an outbound-host allowlist or adapter-owned URL templates; profile-supplied URLs must pass scheme, DNS/IP, redirect, and private-network checks to prevent SSRF.
+- Escape output by context and sanitize permitted markup; never render source HTML directly.
+- Enforce response-size, decompression, redirect, pagination, and processing-time limits.
+- Keep LLM discovery/enrichment isolated from deterministic evidence scoring. Retrieved text cannot change tools, credentials, system prompts, publication state, or methodology.
+- Require strong admin authentication in production, rate-limit login and mutation endpoints, document CSRF policy, and rotate/audit credentials.
+- Sign or checksum exported manifests and backups; restrict raw observation and quarantine access by role.
+- Run dependency, container, and secret scanning in CI; patch critical collector/network vulnerabilities under a defined SLA.
+
+### 12.3 Cost and quota budgets
+
+Each adapter and LLM workflow needs a weekly request/token budget, per-run ceiling, and graceful exhaustion behavior. Cache permitted responses, honor conditional requests, and prioritize active technologies and required sources. Cost exhaustion results in `not_collected:budget_exhausted`, never zero activity. Admin should show current usage, forecast, quota resets, and which analyses will be affected.
+
+## 13. Credentials and external services
 
 Recommended initial configuration:
 
@@ -711,16 +1140,42 @@ Recommended initial configuration:
 
 Credentials must remain environment variables or secret-store values. They must never be persisted in source configuration, evidence payloads, logs, or admin responses.
 
-## 13. Definition of done
+Production readiness should validate required credentials and model/source capabilities before the scheduler starts. A missing optional credential disables only its adapter with a visible reason. A missing required credential fails readiness without repeatedly launching doomed collection runs.
+
+## 14. Decisions required before Phase 1
+
+Resolve and record these as ADRs or methodology decisions:
+
+1. What is the precise tracked entity: named product, implementation, protocol, or category, and when are parent/child profiles both allowed?
+2. Which source classes are required versus optional for each technology type?
+3. What closes a weekly period for each delayed source, and when may provisional values appear publicly?
+4. What minimum publication gates permit a partial run to replace the last-known-good estimate?
+5. Which observation fields may be retained for each proposed source and for how long?
+6. Which independent evidence qualifies the public label “verified adoption,” or should that label change first?
+7. What reviewer process and locked benchmark set authorize methodology changes?
+8. What are acceptable false-high-confidence, false-exit-review, abstention, and correction rates?
+9. What are production RPO/RTO, alert destinations, and on-call ownership?
+10. Which API compatibility promise and historical-revision policy will public consumers receive?
+
+Unresolved decisions must be explicit blockers, not hidden defaults chosen inside adapters.
+
+## 15. Definition of done
 
 This plan is complete when:
 
 - representative technologies use at least four relevant source classes;
+- every public snapshot is linked to an immutable completed run/input manifest and was promoted atomically;
+- historical recomputation is as-of correct and has no future-data or full-window-normalization leakage;
+- unavailable, failed, stale, settling, not-applicable, and observed-zero inputs remain distinct;
 - every estimate exposes source freshness and confidence reasons;
 - a low-confidence estimate explains what is missing in plain language;
 - high confidence requires independent adoption or maturity evidence;
-- partial collection failures are replayable and cannot break public pages;
+- publication may abstain; partial collection failures are replayable and cannot break or silently move public pages;
 - repeated announcements cannot masquerade as independent corroboration;
+- technology identity/query versions make ambiguous terms and history boundaries explicit;
+- source-admission, retention, security, cost, and removal policies exist for every enabled adapter;
+- the locked evaluation report meets agreed thresholds and includes slice/ablation results;
 - ARGUS can place a technology into an operator-reviewed exit state without forcing it through the whole lifecycle;
 - exited technologies stop weekly checks while retaining an auditable public history;
-- all model, source, confidence, and exit changes are versioned and reversible.
+- backup restore and application/schema rollback have been exercised successfully;
+- all model, source, confidence, correction, and exit changes are versioned, auditable, and reversible.
