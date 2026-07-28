@@ -1,4 +1,5 @@
 import sys
+import json
 from pathlib import Path
 import unittest
 
@@ -24,6 +25,18 @@ class InferenceTests(unittest.TestCase):
         features["momentum"] = -95
         negative = infer(features)
         self.assertEqual(positive["probabilities"], negative["probabilities"])
+
+    def test_locked_calibration_benchmarks(self):
+        path = Path(__file__).resolve().parents[3] / "data" / "fixtures" / "benchmarks" / "v1.json"
+        cases = json.loads(path.read_text(encoding="utf-8"))["cases"]
+        bands = {"low": 0, "moderate": 1, "high": 2}
+        for case in cases:
+            with self.subTest(case=case["id"]):
+                estimate = infer(case["features"])
+                self.assertEqual(estimate["phase"], case["expected_phase"])
+                self.assertLessEqual(bands[estimate["confidence_band"]], bands[case["max_confidence_band"]])
+                if "required_reason" in case:
+                    self.assertIn(case["required_reason"], {reason["code"] for reason in estimate["confidence_reasons"]})
 
 
 if __name__ == "__main__":

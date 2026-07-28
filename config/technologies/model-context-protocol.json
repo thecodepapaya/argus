@@ -9,5 +9,8 @@
   "github_repos": ["modelcontextprotocol/modelcontextprotocol", "modelcontextprotocol/python-sdk", "modelcontextprotocol/typescript-sdk", "modelcontextprotocol/registry"],
   "hn_query": "\"Model Context Protocol\"",
   "news_query": "\"Model Context Protocol\" AI",
-  "relevance_terms": ["model context protocol", "mcp server", "mcp protocol"]
+  "relevance_terms": ["model context protocol", "mcp server", "mcp protocol"],
+  "npm_packages": ["@modelcontextprotocol/sdk"],
+  "stackexchange_tags": ["model-context-protocol"],
+  "openalex_query": "Model Context Protocol AI"
 }

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 
-METHODOLOGY_VERSION = "public-metadata-explainable-v4"
+METHODOLOGY_VERSION = "public-metadata-explainable-v5"
 
 GLOSSARY: dict[str, dict[str, str]] = {
     "attention": {

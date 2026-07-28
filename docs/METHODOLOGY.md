@@ -41,6 +41,8 @@ The deterministic scoring model in `backend/src/argus/inference/engine.py` evalu
 
 Confidence combines source coverage and separation between the two leading phase scores, then applies conflict and coverage caps. Source coverage is based on the actual completion outcome of GitHub, Hacker News, and Google News RSS—not the number of collected headlines or commits. The UI shows low, moderate, or high confidence; the numeric score is a model diagnostic, not measured accuracy.
 
+The current calibrated model also caps confidence when evidence comes from fewer than two independent source classes or lacks an independent adoption-oriented signal. Current source-specific adjustments are bounded and applied at most once per source class and feature: release/package metadata can support maturity, security advisories can support setbacks, developer implementation discussions can support adoption, and research metadata can support maturity. Their values are versioned and covered by the locked synthetic regression fixtures; they are not a claim of statistical calibration against market outcomes.
+
 ## Lifecycle cadence
 
 Active technologies are analyzed weekly by default. After 12 consecutive weekly snapshots spanning at least 11 weeks in `plateau_of_productivity`, ARGUS changes their analysis cadence to quarterly. They remain publicly visible, become due every 12 weeks, and can be returned to weekly analysis by an operator. The threshold is configurable with `ARGUS_PLATEAU_WEEKS`, with a safety minimum of eight weeks.

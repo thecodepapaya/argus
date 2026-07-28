@@ -1,0 +1,32 @@
+{
+  "version": "v1",
+  "purpose": "Locked regression cases for calibrated confidence and phase safeguards. These are synthetic, reviewable feature cases rather than claimed market ground truth.",
+  "cases": [
+    {
+      "id": "peak-with-independent-support",
+      "features": {"attention": 88, "expectations": 92, "disappointment": 18, "adoption": 28, "maturity": 25, "momentum": 34, "coverage": 100, "independent_sources": 3, "independent_adoption_sources": 1},
+      "expected_phase": "peak_of_inflated_expectations",
+      "max_confidence_band": "high"
+    },
+    {
+      "id": "sparse-source-cap",
+      "features": {"attention": 85, "expectations": 90, "disappointment": 5, "adoption": 20, "maturity": 20, "momentum": 30, "coverage": 100, "independent_sources": 1, "independent_adoption_sources": 0},
+      "expected_phase": "peak_of_inflated_expectations",
+      "max_confidence_band": "moderate",
+      "required_reason": "SOURCE_CONCENTRATION_HIGH"
+    },
+    {
+      "id": "security-setback",
+      "features": {"attention": 32, "expectations": 25, "disappointment": 88, "adoption": 35, "maturity": 30, "momentum": -38, "coverage": 90, "independent_sources": 3, "independent_adoption_sources": 1},
+      "expected_phase": "trough_of_disillusionment",
+      "max_confidence_band": "high"
+    },
+    {
+      "id": "settling-period",
+      "features": {"attention": 55, "expectations": 50, "disappointment": 20, "adoption": 65, "maturity": 70, "momentum": 0, "momentum_available": false, "coverage": 100, "independent_sources": 3, "independent_adoption_sources": 1},
+      "expected_phase": "slope_of_enlightenment",
+      "max_confidence_band": "high",
+      "required_reason": "CURRENT_PERIOD_SETTLING"
+    }
+  ]
+}

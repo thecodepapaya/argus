@@ -9,5 +9,8 @@
   "github_repos": ["langchain-ai/langgraph", "microsoft/autogen", "crewAIInc/crewAI", "openai/openai-agents-python"],
   "hn_query": "AI agent",
   "news_query": "\"AI agent\" harness OR \"agent framework\"",
-  "relevance_terms": ["agent harness", "agent framework", "agent runtime", "coding agent", "agentic", "multi-agent"]
+  "relevance_terms": ["agent harness", "agent framework", "agent runtime", "coding agent", "agentic", "multi-agent"],
+  "npm_packages": ["@langchain/langgraph"],
+  "stackexchange_tags": ["langchain"],
+  "openalex_query": "AI agent framework"
 }

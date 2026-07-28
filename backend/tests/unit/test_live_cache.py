@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from datetime import UTC, datetime, timedelta
 
-from argus.live import TECHNOLOGIES, _get_json, _history, load_live_cache, validate_live_data
+from argus.live import TECHNOLOGIES, _external_evidence, _get_json, _history, load_live_cache, validate_live_data
 
 
 class LiveCacheTests(unittest.TestCase):
@@ -49,3 +49,13 @@ class LiveCacheTests(unittest.TestCase):
         snapshots = _history([activity], [], now)
         self.assertGreater(snapshots[0]["features"]["adoption"], 25)
         self.assertFalse(snapshots[-1]["features"]["momentum_available"])
+
+    def test_optional_source_families_keep_attribution_and_claim_types(self):
+        npm = _external_evidence("npm", {"name": "@scope/package", "description": "Package", "time": {"modified": "2026-07-01T00:00:00Z"}}, "test", "2026-07-27")
+        advisory = _external_evidence("osv", {"id": "GHSA-test", "summary": "A security issue", "published": "2026-07-01T00:00:00Z"}, "test", "2026-07-27")
+        question = _external_evidence("stackexchange", {"question_id": 1, "title": "How to use this?", "link": "https://stackoverflow.com/questions/1", "creation_date": 1785283200, "answer_count": 2}, "test", "2026-07-27")
+        paper = _external_evidence("openalex", {"id": "https://openalex.org/W1", "display_name": "A paper", "publication_date": "2026-07-01"}, "test", "2026-07-27")
+        self.assertEqual(npm["source_class"], "package_registry")
+        self.assertEqual(advisory["dimension"], "disappointment")
+        self.assertEqual(question["claim_type"], "implementation_discussion")
+        self.assertEqual(paper["source_class"], "research_metadata")

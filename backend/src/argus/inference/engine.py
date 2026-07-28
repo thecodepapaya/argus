@@ -88,12 +88,31 @@ def infer(features: dict[str, Any], previous_phase: str | None = None) -> dict[s
     ordered = sorted(probabilities.values(), reverse=True)
     separation = ordered[0] - ordered[1]
     coverage = float(features.get("coverage", 85))
+    independent_sources = int(features.get("independent_sources", 1))
+    independent_adoption_sources = int(features.get("independent_adoption_sources", 0))
     conflict = min(35.0, abs(hype_gap) * 0.25 + disappointment * 0.18)
     # A decisive model output is not enough on its own. Coverage caps confidence
     # so sparse public data cannot become a falsely certain lifecycle label.
     raw_confidence = 30 + coverage * 0.35 + separation * 35 - conflict * 0.22
     confidence_score = min(_clip(raw_confidence), coverage * 0.95)
+    confidence_caps: list[float] = [coverage * 0.95]
+    if independent_sources < 2:
+        confidence_caps.append(55)
+    if independent_adoption_sources < 1:
+        confidence_caps.append(70)
+    confidence_score = min(confidence_score, *confidence_caps)
     confidence_band = "high" if confidence_score >= 72 else "moderate" if confidence_score >= 52 else "low"
+    confidence_reasons: list[dict[str, str]] = []
+    if coverage < 100:
+        confidence_reasons.append({"code": "SOURCE_COVERAGE_PARTIAL", "message": "One or more configured source families did not complete."})
+    if independent_sources < 2:
+        confidence_reasons.append({"code": "SOURCE_CONCENTRATION_HIGH", "message": "The estimate has fewer than two independent source classes."})
+    if independent_adoption_sources < 1:
+        confidence_reasons.append({"code": "INDEPENDENT_ADOPTION_MISSING", "message": "No independent adoption-oriented source currently supports the estimate."})
+    if not momentum_available:
+        confidence_reasons.append({"code": "CURRENT_PERIOD_SETTLING", "message": "Current-week momentum is withheld until the period settles."})
+    if separation < 0.12:
+        confidence_reasons.append({"code": "PHASE_SCORES_CLOSE", "message": "The leading lifecycle phases are close, so the phase boundary is uncertain."})
 
     previous_index = phase_keys.index(previous_phase) if previous_phase in phase_keys else None
     selected_index = phase_keys.index(selected_key)
@@ -123,6 +142,8 @@ def infer(features: dict[str, Any], previous_phase: str | None = None) -> dict[s
         "probabilities": probabilities,
         "confidence_score": round(confidence_score),
         "confidence_band": confidence_band,
+        "confidence_components": {"coverage": round(coverage), "phase_separation": round(separation * 100), "independent_sources": independent_sources, "independent_adoption_sources": independent_adoption_sources},
+        "confidence_reasons": confidence_reasons,
         "movement": movement,
         "hype_gap": round(hype_gap),
         "summary": summary_map[selected_key],

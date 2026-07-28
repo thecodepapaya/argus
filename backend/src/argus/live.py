@@ -14,7 +14,7 @@ import statistics
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from argus.ingestion.rss import fetch_rss
@@ -36,6 +36,11 @@ def load_technology_configs(path: Path = TECHNOLOGY_CONFIG_PATH) -> dict[str, di
         required = ("id", "display_name", "kind", "definition", "github_repos", "hn_query", "news_query", "relevance_terms")
         if any(not profile.get(key) for key in required):
             raise ValueError(f"Incomplete technology configuration: {config_path}")
+        list_options = ("official_feeds", "npm_packages", "stackexchange_tags")
+        if any(key in profile and (not isinstance(profile[key], list) or not all(isinstance(value, str) and value.strip() and len(value) <= 300 for value in profile[key])) for key in list_options):
+            raise ValueError(f"Invalid optional source configuration: {config_path}")
+        if "openalex_query" in profile and (not isinstance(profile["openalex_query"], str) or not profile["openalex_query"].strip() or len(profile["openalex_query"]) > 300):
+            raise ValueError(f"Invalid OpenAlex query: {config_path}")
         if technology_id in technologies:
             raise ValueError(f"Duplicate technology configuration: {technology_id}")
         technologies[technology_id] = profile
@@ -52,8 +57,29 @@ SOURCE_DISCLOSURE = [
     {"name": "Google News RSS", "class": "established_technical_press", "weight": "Moderate for current attention and claims; exact duplicate titles are removed"},
 ]
 
+SOURCE_METADATA = {
+    "github": ("GitHub public API", "source_code_or_registry"),
+    "github_releases": ("GitHub releases", "release_metadata"),
+    "github_advisories": ("GitHub repository advisories", "security_advisory"),
+    "hacker_news": ("Hacker News public search", "community_forum"),
+    "google_news": ("Google News RSS", "established_technical_press"),
+    "official_feeds": ("Official project feeds", "first_party_announcement"),
+    "npm": ("npm registry", "package_registry"),
+    "osv": ("OSV vulnerability database", "security_advisory"),
+    "stackexchange": ("Stack Exchange public API", "developer_community"),
+    "openalex": ("OpenAlex public API", "research_metadata"),
+}
+
 FEATURE_NAMES = {"attention", "expectations", "disappointment", "adoption", "maturity", "momentum", "coverage"}
 PHASE_NAMES = {"innovation_trigger", "peak_of_inflated_expectations", "trough_of_disillusionment", "slope_of_enlightenment", "plateau_of_productivity"}
+CALIBRATED_SOURCE_DELTAS = {
+    ("release_metadata", "maturity"): 5.0,
+    ("package_registry", "maturity"): 5.0,
+    ("security_advisory", "disappointment"): 7.0,
+    ("developer_community", "adoption"): 4.0,
+    ("research_metadata", "maturity"): 3.0,
+    ("first_party_announcement", "maturity"): 2.0,
+}
 
 
 def _get_json(url: str, accept: str = "application/vnd.github+json") -> Any:
@@ -64,6 +90,13 @@ def _get_json(url: str, accept: str = "application/vnd.github+json") -> Any:
         headers["X-GitHub-Api-Version"] = "2022-11-28"
     request = Request(url, headers=headers)
     with urlopen(request, timeout=20) as response:  # nosec B310: fixed HTTPS source URLs
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _post_json(url: str, payload: dict[str, Any]) -> Any:
+    """POST only to adapter-owned fixed endpoints; profiles never supply URLs."""
+    request = Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Accept": "application/json", "Content-Type": "application/json", "User-Agent": USER_AGENT})
+    with urlopen(request, timeout=20) as response:  # nosec B310: fixed HTTPS OSV endpoint
         return json.loads(response.read().decode("utf-8"))
 
 
@@ -102,6 +135,16 @@ def _github_repo(repo: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     return details, activity
 
 
+def _github_releases(repo: str) -> list[dict[str, Any]]:
+    payload = _get_json(f"https://api.github.com/repos/{repo}/releases?per_page=5")
+    return payload if isinstance(payload, list) else []
+
+
+def _github_advisories(repo: str) -> list[dict[str, Any]]:
+    payload = _get_json(f"https://api.github.com/repos/{repo}/security-advisories?per_page=10")
+    return payload if isinstance(payload, list) else []
+
+
 def _hn_stories(query: str, after: datetime) -> list[dict[str, Any]]:
     params = urlencode({"query": query, "tags": "story", "hitsPerPage": 100, "numericFilters": f"created_at_i>{int(after.timestamp())}"})
     payload = _get_json(f"https://hn.algolia.com/api/v1/search_by_date?{params}", "application/json")
@@ -111,6 +154,37 @@ def _hn_stories(query: str, after: datetime) -> list[dict[str, Any]]:
 def _news_items(query: str) -> list[dict[str, Any]]:
     url = "https://news.google.com/rss/search?" + urlencode({"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"})
     return fetch_rss(url, "Google News RSS", limit=18)
+
+
+def _official_feed_items(feeds: list[str]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for url in feeds:
+        records.extend(fetch_rss(url, "Official project feed", limit=12))
+    return records
+
+
+def _npm_package(name: str) -> dict[str, Any]:
+    return _get_json(f"https://registry.npmjs.org/{quote(name, safe='@/')}", "application/json")
+
+
+def _osv_advisories(package: str) -> list[dict[str, Any]]:
+    payload = _post_json("https://api.osv.dev/v1/query", {"package": {"ecosystem": "npm", "name": package}})
+    return payload.get("vulns", []) if isinstance(payload, dict) else []
+
+
+def _stackexchange_questions(tags: list[str], after: datetime) -> list[dict[str, Any]]:
+    if not tags:
+        return []
+    params = urlencode({"site": "stackoverflow", "tagged": ";".join(tags), "pagesize": 30, "fromdate": int(after.timestamp()), "order": "desc", "sort": "creation"})
+    payload = _get_json(f"https://api.stackexchange.com/2.3/questions?{params}", "application/json")
+    return payload.get("items", []) if isinstance(payload, dict) else []
+
+
+def _openalex_works(query: str) -> list[dict[str, Any]]:
+    if not query:
+        return []
+    payload = _get_json("https://api.openalex.org/works?" + urlencode({"search": query, "per-page": 15}), "application/json")
+    return payload.get("results", []) if isinstance(payload, dict) else []
 
 
 def _repo_evidence(repo: dict[str, Any], tech_id: str, current_week: str) -> dict[str, Any]:
@@ -151,6 +225,49 @@ def _news_evidence(item: dict[str, Any], tech_id: str, current_week: str) -> dic
         "excerpt": item.get("excerpt") or "Headline collected from a current Google News RSS search.", "url": item["url"],
         "status": "attributed_public_metadata",
     }
+
+
+def _external_evidence(source_key: str, item: dict[str, Any], tech_id: str, current_week: str) -> dict[str, Any] | None:
+    """Normalize metadata-only records from optional, attributable source families."""
+    source, source_class = SOURCE_METADATA[source_key]
+    if source_key == "npm":
+        name = item.get("name")
+        if not name:
+            return None
+        modified = item.get("time", {}).get("modified", "")
+        return {"id": f"npm:{tech_id}:{name}", "week": current_week, "dimension": "maturity", "stance": "supporting", "claim_type": "package_registry_metadata", "source": source, "source_class": source_class, "first_party": False, "weight": 0.7, "date": modified[:10], "title": f"{name}: package registry metadata", "excerpt": item.get("description") or "Public npm package metadata.", "url": f"https://www.npmjs.com/package/{name}", "status": "attributed_public_metadata"}
+    if source_key == "osv":
+        identifier = item.get("id")
+        if not identifier:
+            return None
+        published = item.get("published", "")
+        summary = item.get("summary") or item.get("details") or "Published vulnerability advisory."
+        return {"id": f"osv:{tech_id}:{identifier}", "week": current_week, "dimension": "disappointment", "stance": "contradicting", "claim_type": "security_advisory", "source": source, "source_class": source_class, "first_party": False, "weight": 0.86, "date": published[:10], "title": f"{identifier}: {summary[:140]}", "excerpt": summary[:500], "url": f"https://osv.dev/vulnerability/{identifier}", "status": "attributed_public_metadata"}
+    if source_key == "stackexchange":
+        title, link = item.get("title"), item.get("link")
+        if not title or not link:
+            return None
+        created = datetime.fromtimestamp(item.get("creation_date", 0), UTC).date().isoformat()
+        return {"id": f"stackexchange:{tech_id}:{item.get('question_id')}", "week": current_week, "dimension": "adoption", "stance": "supporting", "claim_type": "implementation_discussion", "source": source, "source_class": source_class, "first_party": False, "weight": 0.54, "date": created, "title": title, "excerpt": f"Public developer question with {item.get('answer_count', 0)} answers.", "url": link, "status": "attributed_public_metadata"}
+    if source_key == "openalex":
+        title = item.get("display_name")
+        identifier = item.get("id")
+        if not title or not identifier:
+            return None
+        return {"id": f"openalex:{tech_id}:{identifier.rsplit('/', 1)[-1]}", "week": current_week, "dimension": "maturity", "stance": "supporting", "claim_type": "research_metadata", "source": source, "source_class": source_class, "first_party": False, "weight": 0.58, "date": str(item.get("publication_date") or ""), "title": title, "excerpt": "Public research metadata indexed by OpenAlex.", "url": item.get("doi") or identifier, "status": "attributed_public_metadata"}
+    if source_key == "official_feeds":
+        return {**_news_evidence(item, tech_id, current_week), "id": f"official:{tech_id}:{item['url']}", "source": source, "source_class": source_class, "first_party": True, "weight": 0.82, "claim_type": "official_announcement"}
+    if source_key == "github_releases":
+        url, name = item.get("html_url"), item.get("name") or item.get("tag_name")
+        if not url or not name:
+            return None
+        return {"id": f"github-release:{tech_id}:{url}", "week": current_week, "dimension": "maturity", "stance": "supporting", "claim_type": "release_metadata", "source": source, "source_class": source_class, "first_party": True, "weight": 0.82, "date": str(item.get("published_at") or "")[:10], "title": name, "excerpt": (item.get("body") or "Public GitHub release metadata.")[:500], "url": url, "status": "attributed_public_metadata"}
+    if source_key == "github_advisories":
+        url, identifier = item.get("html_url"), item.get("ghsa_id") or item.get("cve_id")
+        if not url or not identifier:
+            return None
+        return {"id": f"github-advisory:{tech_id}:{identifier}", "week": current_week, "dimension": "disappointment", "stance": "contradicting", "claim_type": "security_advisory", "source": source, "source_class": source_class, "first_party": True, "weight": 0.86, "date": str(item.get("published_at") or "")[:10], "title": f"{identifier}: {item.get('summary') or 'Repository security advisory'}", "excerpt": (item.get("description") or "Public GitHub security advisory.")[:500], "url": url, "status": "attributed_public_metadata"}
+    return None
 
 
 def _deduplicate_evidence(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -246,6 +363,33 @@ def _source_coverage(source_health: dict[str, bool]) -> float:
     return _clamp(100 * sum(applicable) / len(applicable)) if applicable else 0
 
 
+def _apply_source_calibration(snapshots: list[dict[str, Any]], evidence: list[dict[str, Any]]) -> None:
+    """Apply bounded, source-class-specific current-week adjustments.
+
+    Each source class can contribute at most once per feature. This prevents a
+    release flood, advisory list, or syndicated announcement from dominating an
+    estimate while making the calibration traceable in the resulting snapshot.
+    """
+    if not snapshots:
+        return
+    features = snapshots[-1]["features"]
+    applied: set[tuple[str, str]] = set()
+    independent_classes = {item.get("source_class") for item in evidence if item.get("source_class")}
+    adoption_classes = {item.get("source_class") for item in evidence if item.get("dimension") == "adoption" and item.get("source_class") not in {"source_code_or_registry", "first_party_announcement"}}
+    for item in evidence:
+        key = (item.get("source_class"), item.get("dimension"))
+        delta = CALIBRATED_SOURCE_DELTAS.get(key)
+        if not delta or key in applied:
+            continue
+        features[key[1]] = _clamp(features[key[1]] + delta * min(1.0, float(item.get("weight", 0))))
+        applied.add(key)
+    features["independent_sources"] = len(independent_classes)
+    features["independent_adoption_sources"] = len(adoption_classes)
+    snapshots[-1]["calibration_trace"] = [{"source_class": source_class, "feature": feature, "delta_cap": delta} for (source_class, feature), delta in CALIBRATED_SOURCE_DELTAS.items() if (source_class, feature) in applied]
+    previous_phase = snapshots[-2]["phase"] if len(snapshots) > 1 else None
+    snapshots[-1].update(infer(features, previous_phase))
+
+
 def collect_technology(technology: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
     """Collect a configuration-driven technology profile using existing adapters."""
     now = now or datetime.now(UTC)
@@ -277,16 +421,69 @@ def collect_technology(technology: dict[str, Any], now: datetime | None = None) 
         news = []; errors.append(f"Google News RSS: {error}"); news_ok = False
     else:
         news_ok = True
+    optional_records: dict[str, list[dict[str, Any]]] = {}
+    optional_health: dict[str, bool] = {}
+    optional_sources = {
+        "github_releases": technology["github_repos"],
+        "github_advisories": technology["github_repos"],
+        "official_feeds": technology.get("official_feeds", []),
+        "npm": technology.get("npm_packages", []),
+        "stackexchange": technology.get("stackexchange_tags", []),
+        "openalex": technology.get("openalex_query", ""),
+    }
+    try:
+        optional_records["github_releases"] = [release for repo in optional_sources["github_releases"] for release in _github_releases(repo)]
+        optional_health["github_releases"] = True
+    except Exception as error:
+        optional_records["github_releases"] = []; optional_health["github_releases"] = False; errors.append(f"GitHub releases: {error}")
+    try:
+        optional_records["github_advisories"] = [advisory for repo in optional_sources["github_advisories"] for advisory in _github_advisories(repo)]
+        optional_health["github_advisories"] = True
+    except Exception as error:
+        optional_records["github_advisories"] = []; optional_health["github_advisories"] = False; errors.append(f"GitHub repository advisories: {error}")
+    if optional_sources["official_feeds"]:
+        try:
+            optional_records["official_feeds"] = _official_feed_items(optional_sources["official_feeds"])
+            optional_health["official_feeds"] = True
+        except Exception as error:
+            optional_records["official_feeds"] = []; optional_health["official_feeds"] = False; errors.append(f"Official project feeds: {error}")
+    if optional_sources["npm"]:
+        try:
+            packages = [_npm_package(package) for package in optional_sources["npm"]]
+            optional_records["npm"] = packages
+            optional_health["npm"] = True
+            try:
+                optional_records["osv"] = [advisory for package in optional_sources["npm"] for advisory in _osv_advisories(package)]
+                optional_health["osv"] = True
+            except Exception as error:
+                optional_records["osv"] = []; optional_health["osv"] = False; errors.append(f"OSV vulnerability database: {error}")
+        except Exception as error:
+            optional_records["npm"] = []; optional_health["npm"] = False; errors.append(f"npm registry: {error}")
+    if optional_sources["stackexchange"]:
+        try:
+            optional_records["stackexchange"] = _stackexchange_questions(optional_sources["stackexchange"], after)
+            optional_health["stackexchange"] = True
+        except Exception as error:
+            optional_records["stackexchange"] = []; optional_health["stackexchange"] = False; errors.append(f"Stack Exchange public API: {error}")
+    if optional_sources["openalex"]:
+        try:
+            optional_records["openalex"] = _openalex_works(optional_sources["openalex"])
+            optional_health["openalex"] = True
+        except Exception as error:
+            optional_records["openalex"] = []; optional_health["openalex"] = False; errors.append(f"OpenAlex public API: {error}")
     evidence = [*(_repo_evidence(repo, tech_id, current_week) for repo in repo_details)]
     evidence.extend(item for item in (_hn_evidence(story, tech_id, current_week) for story in stories[:12]) if item)
     evidence.extend(_news_evidence(item, tech_id, current_week) for item in news[:12])
+    for source_key, records in optional_records.items():
+        evidence.extend(item for item in (_external_evidence(source_key, record, tech_id, current_week) for record in records[:12]) if item)
     evidence = _deduplicate_evidence(evidence)
-    source_health = {"github": github_ok, "hacker_news": hn_ok, "google_news": news_ok}
+    source_health = {"github": github_ok, "hacker_news": hn_ok, "google_news": news_ok, **optional_health}
     snapshots = _history(activities, stories, now)
     snapshots[-1]["features"]["coverage"] = _source_coverage(source_health)
     snapshots[-1]["coverage_warning"] = None if all(source_health.values()) else "Partial collection: one or more configured source families did not complete."
     _apply_current_repository_signal(snapshots, repo_details, now, technology.get("signal_calibration"))
-    return {"technology": technology, "snapshots": snapshots, "evidence": evidence, "source_errors": errors, "source_counts": {"github_repositories": len(repo_details), "hacker_news_stories": len(stories), "news_items": len(news)}, "source_health": source_health}
+    _apply_source_calibration(snapshots, evidence)
+    return {"technology": technology, "snapshots": snapshots, "evidence": evidence, "source_errors": errors, "source_counts": {"github_repositories": len(repo_details), "hacker_news_stories": len(stories), "news_items": len(news), **{f"{key}_items": len(records) for key, records in optional_records.items()}}, "source_health": source_health}
 
 
 def collect_live_data(now: datetime | None = None) -> dict[str, Any]:
@@ -351,6 +548,7 @@ def _reconcile_cached_coverage(data: dict[str, Any]) -> dict[str, Any]:
             "google_news": not any(value.startswith("Google News RSS") for value in errors),
         }
         previous_phase = None
+        evidence = profile.get("evidence", [])
         for index, snapshot in enumerate(snapshots):
             features = snapshot["features"]
             # v1/v2 derived adoption primarily from commit volume. v3 caps that
@@ -362,6 +560,10 @@ def _reconcile_cached_coverage(data: dict[str, Any]) -> dict[str, Any]:
                 features["momentum_available"] = False
                 snapshot["period_status"] = "settling"
                 snapshot["coverage_warning"] = None if all(source_health.values()) else "Partial collection: one or more configured source families did not complete."
+                classes = {item.get("source_class") for item in evidence if item.get("source_class")}
+                adoption_classes = {item.get("source_class") for item in evidence if item.get("dimension") == "adoption" and item.get("source_class") not in {"source_code_or_registry", "first_party_announcement"}}
+                features["independent_sources"] = len(classes)
+                features["independent_adoption_sources"] = len(adoption_classes)
             snapshot.update(infer(features, previous_phase))
             snapshot["model_version"] = METHODOLOGY_VERSION
             previous_phase = snapshot["phase"]

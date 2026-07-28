@@ -182,10 +182,21 @@ class OperationsStore:
                 (item["id"], technology_id, json.dumps(item), now, now),
             )
 
-    def _default_sources(self, technology_id: str, errors: list[str]) -> None:
-        for name, source_class in (("GitHub public API", "source_code_or_registry"), ("Hacker News public search", "community_forum"), ("Google News RSS", "established_technical_press")):
-            source_id = f"{technology_id}:{source_class}"
-            error = next((value for value in errors if name.split()[0] in value), None)
+    def _default_sources(self, technology_id: str, errors: list[str], source_health: dict[str, bool] | None = None) -> None:
+        source_catalog = {
+            "github": ("GitHub public API", "source_code_or_registry"), "hacker_news": ("Hacker News public search", "community_forum"), "google_news": ("Google News RSS", "established_technical_press"),
+            "github_releases": ("GitHub releases", "release_metadata"), "github_advisories": ("GitHub repository advisories", "security_advisory"),
+            "official_feeds": ("Official project feeds", "first_party_announcement"), "npm": ("npm registry", "package_registry"), "osv": ("OSV vulnerability database", "security_advisory"),
+            "stackexchange": ("Stack Exchange public API", "developer_community"), "openalex": ("OpenAlex public API", "research_metadata"),
+        }
+        enabled = source_health or {"github": True, "hacker_news": True, "google_news": True}
+        for key, completed in enabled.items():
+            if key not in source_catalog:
+                continue
+            name, source_class = source_catalog[key]
+            source_id = f"{technology_id}:{key}"
+            error_prefix = {"github": "GitHub", "hacker_news": "Hacker News", "google_news": "Google News RSS"}.get(key, name)
+            error = next((value for value in errors if value.startswith(error_prefix)), None)
             self.connection.execute(
                 """
                 INSERT INTO sources VALUES (?, ?, ?, ?, 'active', '{}', ?, ?)
@@ -194,7 +205,7 @@ class OperationsStore:
                     last_success_at = COALESCE(excluded.last_success_at, sources.last_success_at),
                     last_error = excluded.last_error
                 """,
-                (source_id, technology_id, name, source_class, _now() if not error else None, error),
+                (source_id, technology_id, name, source_class, _now() if completed and not error else None, error),
             )
 
     def _create_run(self, technology_id: str | None, week: str, status: str, stage: str, details: dict[str, Any], errors: list[str]) -> str:
@@ -347,6 +358,11 @@ class OperationsStore:
             raise ValueError("GitHub repositories must be an array of owner/repository values")
         if not isinstance(profile["relevance_terms"], list) or len(profile["relevance_terms"]) > 50 or not all(isinstance(value, str) and value.strip() and len(value) <= 100 for value in profile["relevance_terms"]):
             raise ValueError("Relevance terms must be a non-empty array of strings")
+        for key in ("official_feeds", "npm_packages", "stackexchange_tags"):
+            if key in profile and (not isinstance(profile[key], list) or len(profile[key]) > 30 or not all(isinstance(value, str) and value.strip() and len(value) <= 300 for value in profile[key])):
+                raise ValueError(f"{key.replace('_', ' ').title()} must be an array of short strings")
+        if "openalex_query" in profile and (not isinstance(profile["openalex_query"], str) or not profile["openalex_query"].strip() or len(profile["openalex_query"]) > 300):
+            raise ValueError("OpenAlex query must be a short string")
         profile = {**profile, "id": technology_id}
         now = _now()
         self.connection.execute(
@@ -380,7 +396,7 @@ class OperationsStore:
         if not collected.get("snapshots"): raise ValueError("Collection did not produce any snapshots")
         profile = collected["technology"]
         self.connection.execute("UPDATE technologies SET profile_json = ?, updated_at = ? WHERE id = ?", (json.dumps(profile), _now(), technology_id))
-        self._default_sources(technology_id, collected.get("source_errors", []))
+        self._default_sources(technology_id, collected.get("source_errors", []), collected.get("source_health"))
         source_health = collected.get("source_health", {})
         successful_sources = sum(value is True for value in source_health.values())
         has_existing_publication = bool(self.snapshots(technology_id)) and technology["status"] == "active"
